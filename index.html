@@ -1132,7 +1132,7 @@ function render(){window._ultimoRender=Date.now();
           <div style="position:relative">
             <button class="bell-btn" onclick="toggleModoNocturno()" title="Modo nocturno" style="margin-right:4px">🌙</button><button class="bell-btn" onclick="abrirModal('alertasDetalle')" title="Ver alertas">
               ${icon('bell',18)}
-              ${(()=>{const al=calcAlertas();const n=al.length;return n>0?`<span class="bell-badge">${n}</span>`:''})()}
+              ${(()=>{const al=calcAlertasActivas();const n=al.length;return n>0?`<span class="bell-badge">${n}</span>`:''})()}
             </button>
           </div>`}
           ${UI.session?`<div style="display:flex;align-items:center;gap:8px">
@@ -1329,8 +1329,37 @@ function calcAlertas(){
   return alertas;
 }
 
+// ── Sistema de alertas vistas + historial ──
+function _keyAlertasVistas(){const s=sede();return 'avd_alertas_vistas_'+(s?.id||'x');}
+function _keyAlertasHistorial(){const s=sede();return 'avd_alertas_historial_'+(s?.id||'x');}
+function getAlertasVistas(){try{return JSON.parse(localStorage.getItem(_keyAlertasVistas())||'[]');}catch(e){return[];}}
+function getAlertasHistorial(){try{return JSON.parse(localStorage.getItem(_keyAlertasHistorial())||'[]');}catch(e){return[];}}
+function marcarAlertaVista(id,alerta){
+  const vistas=getAlertasVistas();
+  if(!vistas.includes(id)){
+    vistas.push(id);
+    localStorage.setItem(_keyAlertasVistas(),JSON.stringify(vistas));
+  }
+  // Guardar en historial
+  const hist=getAlertasHistorial();
+  hist.unshift({...alerta,id,vista_en:new Date().toISOString()});
+  localStorage.setItem(_keyAlertasHistorial(),JSON.stringify(hist.slice(0,200)));
+}
+window.marcarAlertaVista=marcarAlertaVista;
+window.marcarTodasVistas=()=>{
+  const alertas=calcAlertasActivas();
+  alertas.forEach(a=>{if(a.id)marcarAlertaVista(a.id,a);});
+  render();
+};
+function calcAlertasActivas(){
+  const todas=calcAlertas();
+  const vistas=getAlertasVistas();
+  // Las alertas críticas nunca se ocultan
+  return todas.filter(a=>a.nivel==='critico'||!a.id||!vistas.includes(a.id));
+}
+
 function bannerAlertas(){
-  const alertas=calcAlertas();
+  const alertas=calcAlertasActivas();
   if(alertas.length===0)return '';
   const criticas=alertas.filter(a=>a.nivel==='critico');
   const color=criticas.length>0?'#dc2626':'#d97706';
@@ -1340,28 +1369,30 @@ function bannerAlertas(){
   const habs=alertas.filter(a=>a.tipo==='habitacion');
   const stocks=alertas.filter(a=>a.tipo==='stock');
   const resvs=alertas.filter(a=>a.tipo==='reserva');
-  if(habs.length)resumen.push(`${habs.length} hab. vencida${habs.length>1?'s':''}`);
-  if(stocks.length)resumen.push(`${stocks.length} producto${stocks.length>1?'s':''} con stock bajo`);
-  if(resvs.length)resumen.push(`${resvs.length} reserva${resvs.length>1?'s':''} sin check-in`);
+  const mants=alertas.filter(a=>a.tipo==='mantenimiento');
+  if(habs.length)resumen.push(`${habs.length} hab.`);
+  if(stocks.length)resumen.push(`${stocks.length} stock`);
+  if(resvs.length)resumen.push(`${resvs.length} reserva${resvs.length>1?'s':''}`);
+  if(mants.length)resumen.push(`${mants.length} mant.`);
   return `<div style="background:${bgColor};border:1px solid ${borderColor};border-radius:10px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;cursor:pointer" onclick="abrirModal('alertasDetalle')">
     <div style="display:flex;align-items:center;gap:10px">
       <span style="font-size:18px">${criticas.length>0?'🔴':'🟡'}</span>
       <div>
         <div style="font-weight:700;font-size:13px;color:${color}">${alertas.length} alerta${alertas.length>1?'s':''} activa${alertas.length>1?'s':''}</div>
-        <div style="font-size:12px;color:${color};opacity:.8">${resumen.join(' · ')}</div>
+        <div style="font-size:12px;color:${color};opacity:.8">${resumen.join(' · ')} · <u>Ver detalle</u></div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      ${alertas.slice(0,3).map(a=>`<span style="background:${a.nivel==='critico'?'#fee2e2':'#fef3c7'};color:${a.nivel==='critico'?'#991b1b':'#92400e'};border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600">${a.icono} ${a.titulo.substring(0,30)}${a.titulo.length>30?'…':''}</span>`).join('')}
-      ${alertas.length>3?`<span style="font-size:11px;color:${color};font-weight:600">+${alertas.length-3} más →</span>`:`<span style="font-size:11px;color:${color};opacity:.7">Ver detalle →</span>`}
+      ${alertas.slice(0,2).map(a=>`<span style="background:${a.nivel==='critico'?'#fee2e2':'#fef3c7'};color:${a.nivel==='critico'?'#991b1b':'#92400e'};border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600">${a.icono} ${a.titulo.substring(0,28)}${a.titulo.length>28?'…':''}</span>`).join('')}
+      ${alertas.length>2?`<span style="font-size:11px;color:${color};font-weight:600">+${alertas.length-2} más →</span>`:''}
     </div>
   </div>`;
 }
 
 function badgeAlertas(){
-  const n=calcAlertas().length;
+  const n=calcAlertasActivas().length;
   if(n===0)return '';
-  const criticas=calcAlertas().filter(a=>a.nivel==='critico').length;
+  const criticas=calcAlertasActivas().filter(a=>a.nivel==='critico').length;
   return `<span style="position:absolute;top:-5px;right:-5px;background:${criticas>0?'#dc2626':'#d97706'};color:#fff;border-radius:9px;min-width:18px;height:18px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;pointer-events:none;line-height:1">${n}</span>`;
 }
 
@@ -1958,7 +1989,7 @@ function pgDueno(){
   const totTienda=txTurno.filter(t=>t.tipo==='tienda').reduce((a,t)=>a+t.monto,0);
   const totGastos=txTurno.filter(t=>t.tipo==='gasto').reduce((a,t)=>a+t.monto,0);
   const efectivoCaja=(s.caja.montoInicial||0)+bols.efectivo+txTurno.filter(t=>t.tipo==='ingreso_caja').reduce((a,t)=>a+t.monto,0)-totGastos;
-  const alertas=calcAlertas();
+  const alertas=calcAlertasActivas();
   const ultimas=s.transacciones.filter(t=>!t.anulada).slice(0,8);
   const pct=st.total?Math.round(st.ocupadas/st.total*100):0;
   return `
@@ -4541,33 +4572,77 @@ function modalHTML(){
 
 
   if(m==='alertasDetalle'){
-    const alertas=calcAlertas();
+    const alertas=calcAlertasActivas();
+    const historial=getAlertasHistorial();
     if(alertas.length===0){
-      return modal('🔔 Alertas',`<div class="empty" style="padding:40px 0"><div style="font-size:38px;margin-bottom:10px">✅</div><div style="font-weight:700">Sin alertas activas</div><div style="font-size:13px;margin-top:6px;color:var(--txt2)">Todo marcha bien por el momento.</div></div>`,420);
+      return modal('🔔 Alertas',`
+        <div class="empty" style="padding:30px 0 10px"><div style="font-size:38px;margin-bottom:10px">✅</div><div style="font-weight:700">Sin alertas activas</div><div style="font-size:13px;margin-top:6px;color:var(--txt2)">Todo marcha bien por el momento.</div></div>
+        ${historial.length?`<div style="margin-top:16px;border-top:1px solid var(--borde);padding-top:14px">
+          <div style="font-weight:700;font-size:12px;color:var(--txt2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">📋 Historial reciente</div>
+          ${historial.slice(0,8).map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f1f5f9">
+            <span style="font-size:16px">${a.icono||'•'}</span>
+            <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--txt)">${a.titulo||''}</div><div style="font-size:11px;color:var(--txt2)">${a.vista_en?new Date(a.vista_en).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</div></div>
+          </div>`).join('')}
+          <button class="btn btn-out" style="margin-top:10px;font-size:12px" onclick="localStorage.removeItem(_keyAlertasHistorial?.()??'');cerrarModal();render()">Limpiar historial</button>
+        </div>`:''}
+        <div style="margin-top:16px;text-align:right"><button class="btn btn-out" onclick="cerrarModal()">Cerrar</button></div>
+      `,540);
     }
     const grupos=[
-      {tipo:'habitacion',label:'🏨 Habitaciones vencidas',alertas:alertas.filter(a=>a.tipo==='habitacion')},
+      {tipo:'mantenimiento',label:'🔧 Mantenimiento urgente',alertas:alertas.filter(a=>a.tipo==='mantenimiento')},
+      {tipo:'habitacion',label:'🏨 Habitaciones',alertas:alertas.filter(a=>a.tipo==='habitacion')},
       {tipo:'reserva',   label:'📅 Reservas sin check-in',alertas:alertas.filter(a=>a.tipo==='reserva')},
       {tipo:'stock',     label:'📦 Stock bajo',            alertas:alertas.filter(a=>a.tipo==='stock')},
+      {tipo:'cortesia',  label:'🎁 Cortesías / Sorteos',   alertas:alertas.filter(a=>a.tipo==='cortesia')},
     ].filter(g=>g.alertas.length>0);
-    return modal(`<span>🔔 Alertas activas · <span style="color:${alertas.some(a=>a.nivel==='critico')?'#dc2626':'#d97706'}">${alertas.length} alerta${alertas.length>1?'s':''}</span></span>`,`
+    return modal(`<span>🔔 Alertas activas · <span style="color:${alertas.some(a=>a.nivel==='critico')?'#dc2626':'#d97706'}">${alertas.length}</span></span>`,`
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;gap:8px">
+      <button class="btn btn-out" style="font-size:12px;padding:5px 10px" onclick="abrirModal('alertasHistorial')">📋 Ver historial</button>
+      <button class="btn btn-out" style="font-size:12px;padding:5px 10px;color:var(--verde);border-color:#86efac" onclick="marcarTodasVistas()">✓ Marcar todas como vistas</button>
+    </div>
     ${grupos.map(g=>`
       <div style="margin-bottom:16px">
-        <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${g.label}</div>
+        <div style="font-weight:700;font-size:12px;margin-bottom:8px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${g.label}</div>
         ${g.alertas.map(a=>`
-          <div style="background:${a.nivel==='critico'?'#fff5f5':'#fffbeb'};border:1px solid ${a.nivel==='critico'?'#fca5a5':'#fde047'};border-left:4px solid ${a.nivel==='critico'?'#dc2626':'#d97706'};border-radius:9px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-            <div>
-              <div style="font-weight:700;font-size:13px;color:${a.nivel==='critico'?'#991b1b':'#92400e'}">${a.icono} ${a.titulo}</div>
-              <div style="font-size:12px;color:${a.nivel==='critico'?'#991b1b':'#92400e'};opacity:.8;margin-top:3px">${a.desc}</div>
+          <div style="background:${a.nivel==='critico'?'#fff5f5':a.nivel==='advertencia'?'#fffbeb':'#f0fdf4'};border:1px solid ${a.nivel==='critico'?'#fca5a5':a.nivel==='advertencia'?'#fde047':'#86efac'};border-left:4px solid ${a.nivel==='critico'?'#dc2626':a.nivel==='advertencia'?'#d97706':'#16a34a'};border-radius:9px;padding:10px 12px;margin-bottom:8px">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700;font-size:13px;color:${a.nivel==='critico'?'#991b1b':'#92400e'}">${a.icono} ${a.titulo}</div>
+                <div style="font-size:12px;color:${a.nivel==='critico'?'#991b1b':'#92400e'};opacity:.8;margin-top:2px">${a.desc}</div>
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
+                ${a.id&&a.nivel!=='critico'?`<button class="btn-out" style="padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;color:#64748b;border-color:#e2e8f0" onclick="marcarAlertaVista('${a.id}',${JSON.stringify(JSON.stringify(a))});cerrarModal();render()">✓ Vista</button>`:''}
+                ${a.accion?`<button class="btn-out" style="padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;color:${a.nivel==='critico'?'#991b1b':'#92400e'};border-color:${a.nivel==='critico'?'#fca5a5':'#fde047'};background:#fff" onclick="cerrarModal();${a.accion.fn}">${a.accion.label}</button>`:''}
+              </div>
             </div>
-            <button class="btn-out" style="padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;white-space:nowrap;color:${a.nivel==='critico'?'#991b1b':'#92400e'};border-color:${a.nivel==='critico'?'#fca5a5':'#fde047'};background:#fff" onclick="cerrarModal();${a.accion.fn}">${a.accion.label}</button>
           </div>`).join('')}
       </div>`).join('')}
     <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--borde);flex-wrap:wrap;gap:8px">
-      <div style="font-size:12px;color:var(--txt2)">Umbral stock bajo: <b>${getUmbralStock()} unidades</b> · <span style="cursor:pointer;color:var(--azul);text-decoration:underline" onclick="cerrarModal();nav('config')">Cambiar en Config</span></div>
+      <div style="font-size:12px;color:var(--txt2)">Umbral stock: <b>${getUmbralStock()} uds</b> · <span style="cursor:pointer;color:var(--azul)" onclick="cerrarModal();nav('config')">Cambiar</span></div>
       <button class="btn btn-out" onclick="cerrarModal()">Cerrar</button>
     </div>
-    `,640);
+    `,660);
+  }
+
+  if(m==='alertasHistorial'){
+    const historial=getAlertasHistorial();
+    return modal('📋 Historial de alertas',`
+      ${historial.length===0?`<div class="empty" style="padding:30px 0"><div style="font-size:32px;margin-bottom:8px">📭</div><div style="font-weight:700">Sin historial aún</div><div style="font-size:13px;margin-top:4px;color:var(--txt2)">Aquí aparecerán las alertas que marques como vistas.</div></div>`:`
+      <div style="max-height:420px;overflow-y:auto;padding-right:4px">
+        ${historial.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f1f5f9">
+          <span style="font-size:18px;flex-shrink:0">${a.icono||'•'}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--txt)">${a.titulo||''}</div>
+            <div style="font-size:11px;color:var(--txt2);margin-top:1px">${a.desc||''}</div>
+          </div>
+          <div style="font-size:11px;color:var(--txt3);white-space:nowrap;flex-shrink:0">${a.vista_en?new Date(a.vista_en).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</div>
+        </div>`).join('')}
+      </div>
+      <div style="margin-top:12px;display:flex;justify-content:space-between;gap:8px">
+        <button class="btn btn-out" style="font-size:12px;color:var(--rojo);border-color:#fca5a5" onclick="if(confirm('¿Limpiar todo el historial de alertas?')){localStorage.removeItem('${_keyAlertasHistorial()}');cerrarModal();}">🗑 Limpiar historial</button>
+        <button class="btn btn-out" onclick="cerrarModal()">Cerrar</button>
+      </div>`}
+    `,560);
   }
 
   return '';
@@ -4726,10 +4801,25 @@ window.resolverMantenimiento=async(id)=>{
   const costo=parseFloat(costoStr)||t.costo||0;
   t.estado='resuelto';t.fecha_resuelto=new Date().toISOString();t.resuelto_por=UI.session?.nombre||'';t.costo=costo;
   // Liberar la habitación si estaba bloqueada
-  if(t.bloquea_alquiler){const h=s.habitaciones.find(x=>x.num===t.hab_num);if(h&&h.estado==='mantenimiento'){h.estado='limpieza';await dbUpdateHab(s.id,t.hab_num,{estado:'limpieza'});}}
-  showToast('Mantenimiento resuelto · Hab. '+t.hab_num);
-  render();
+  if(t.bloquea_alquiler){
+    const h=s.habitaciones.find(x=>x.num===t.hab_num);
+    if(h&&h.estado==='mantenimiento'){
+      h.estado='limpieza';
+      await dbUpdateHab(s.id,t.hab_num,{estado:'limpieza'});
+    }
+  }
+  // Guardar en historial de alertas resueltas
+  try{
+    const key='avd_alertas_historial_'+s.id;
+    const hist=JSON.parse(localStorage.getItem(key)||'[]');
+    hist.unshift({tipo:'mantenimiento',titulo:'Mantenimiento resuelto · Hab. '+t.hab_num,desc:t.problema||'',fecha:new Date().toISOString(),resuelto_por:t.resuelto_por});
+    localStorage.setItem(key,JSON.stringify(hist.slice(0,200)));
+  }catch(e){}
+  showToast('✅ Mantenimiento resuelto · Hab. '+t.hab_num);
+  // Forzar recarga completa para que el dashboard se actualice
   await dbUpdateMantenimiento(s.id,id,{estado:'resuelto',fecha_resuelto:t.fecha_resuelto,resuelto_por:t.resuelto_por,costo});
+  await cargarTodo();
+  render();
 };
 window.borrarMantenimiento=async(id)=>{
   if(!confirm('¿Eliminar este reporte de mantenimiento?'))return;
@@ -8031,7 +8121,7 @@ async function sincronizarSilencioso(){
 }
 function iniciarSyncAutomatico(){
   if(_syncInterval)clearInterval(_syncInterval);
-  _syncInterval=setInterval(sincronizarSilencioso,5000); // cada 5 segundos
+  _syncInterval=setInterval(sincronizarSilencioso,30000); // cada 30 segundos
   // Sincronizar al volver a la pestaña
   document.addEventListener('visibilitychange',()=>{
     if(!document.hidden&&UI.session&&!UI.modal&&window._guardando===0&&Date.now()-(window._ultimaEscritura||0)>8000&&Date.now()-_ultimaSync>10000){
