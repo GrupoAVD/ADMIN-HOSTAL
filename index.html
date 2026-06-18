@@ -1132,7 +1132,7 @@ function render(){window._ultimoRender=Date.now();
           <div style="position:relative">
             <button class="bell-btn" onclick="toggleModoNocturno()" title="Modo nocturno" style="margin-right:4px">🌙</button><button class="bell-btn" onclick="abrirModal('alertasDetalle')" title="Ver alertas">
               ${icon('bell',18)}
-              ${(()=>{const al=calcAlertasActivas();const n=al.length;return n>0?`<span class="bell-badge">${n}</span>`:''})()}
+              ${(()=>{const al=calcAlertas();const n=al.length;return n>0?`<span class="bell-badge">${n}</span>`:''})()}
             </button>
           </div>`}
           ${UI.session?`<div style="display:flex;align-items:center;gap:8px">
@@ -1329,37 +1329,8 @@ function calcAlertas(){
   return alertas;
 }
 
-// ── Sistema de alertas vistas + historial ──
-function _keyAlertasVistas(){const s=sede();return 'avd_alertas_vistas_'+(s?.id||'x');}
-function _keyAlertasHistorial(){const s=sede();return 'avd_alertas_historial_'+(s?.id||'x');}
-function getAlertasVistas(){try{return JSON.parse(localStorage.getItem(_keyAlertasVistas())||'[]');}catch(e){return[];}}
-function getAlertasHistorial(){try{return JSON.parse(localStorage.getItem(_keyAlertasHistorial())||'[]');}catch(e){return[];}}
-function marcarAlertaVista(id,alerta){
-  const vistas=getAlertasVistas();
-  if(!vistas.includes(id)){
-    vistas.push(id);
-    localStorage.setItem(_keyAlertasVistas(),JSON.stringify(vistas));
-  }
-  // Guardar en historial
-  const hist=getAlertasHistorial();
-  hist.unshift({...alerta,id,vista_en:new Date().toISOString()});
-  localStorage.setItem(_keyAlertasHistorial(),JSON.stringify(hist.slice(0,200)));
-}
-window.marcarAlertaVista=marcarAlertaVista;
-window.marcarTodasVistas=()=>{
-  const alertas=calcAlertasActivas();
-  alertas.forEach(a=>{if(a.id)marcarAlertaVista(a.id,a);});
-  render();
-};
-function calcAlertasActivas(){
-  const todas=calcAlertas();
-  const vistas=getAlertasVistas();
-  // Las alertas críticas nunca se ocultan
-  return todas.filter(a=>a.nivel==='critico'||!a.id||!vistas.includes(a.id));
-}
-
 function bannerAlertas(){
-  const alertas=calcAlertasActivas();
+  const alertas=calcAlertas();
   if(alertas.length===0)return '';
   const criticas=alertas.filter(a=>a.nivel==='critico');
   const color=criticas.length>0?'#dc2626':'#d97706';
@@ -1369,30 +1340,28 @@ function bannerAlertas(){
   const habs=alertas.filter(a=>a.tipo==='habitacion');
   const stocks=alertas.filter(a=>a.tipo==='stock');
   const resvs=alertas.filter(a=>a.tipo==='reserva');
-  const mants=alertas.filter(a=>a.tipo==='mantenimiento');
-  if(habs.length)resumen.push(`${habs.length} hab.`);
-  if(stocks.length)resumen.push(`${stocks.length} stock`);
-  if(resvs.length)resumen.push(`${resvs.length} reserva${resvs.length>1?'s':''}`);
-  if(mants.length)resumen.push(`${mants.length} mant.`);
+  if(habs.length)resumen.push(`${habs.length} hab. vencida${habs.length>1?'s':''}`);
+  if(stocks.length)resumen.push(`${stocks.length} producto${stocks.length>1?'s':''} con stock bajo`);
+  if(resvs.length)resumen.push(`${resvs.length} reserva${resvs.length>1?'s':''} sin check-in`);
   return `<div style="background:${bgColor};border:1px solid ${borderColor};border-radius:10px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;cursor:pointer" onclick="abrirModal('alertasDetalle')">
     <div style="display:flex;align-items:center;gap:10px">
       <span style="font-size:18px">${criticas.length>0?'🔴':'🟡'}</span>
       <div>
         <div style="font-weight:700;font-size:13px;color:${color}">${alertas.length} alerta${alertas.length>1?'s':''} activa${alertas.length>1?'s':''}</div>
-        <div style="font-size:12px;color:${color};opacity:.8">${resumen.join(' · ')} · <u>Ver detalle</u></div>
+        <div style="font-size:12px;color:${color};opacity:.8">${resumen.join(' · ')}</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      ${alertas.slice(0,2).map(a=>`<span style="background:${a.nivel==='critico'?'#fee2e2':'#fef3c7'};color:${a.nivel==='critico'?'#991b1b':'#92400e'};border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600">${a.icono} ${a.titulo.substring(0,28)}${a.titulo.length>28?'…':''}</span>`).join('')}
-      ${alertas.length>2?`<span style="font-size:11px;color:${color};font-weight:600">+${alertas.length-2} más →</span>`:''}
+      ${alertas.slice(0,3).map(a=>`<span style="background:${a.nivel==='critico'?'#fee2e2':'#fef3c7'};color:${a.nivel==='critico'?'#991b1b':'#92400e'};border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600">${a.icono} ${a.titulo.substring(0,30)}${a.titulo.length>30?'…':''}</span>`).join('')}
+      ${alertas.length>3?`<span style="font-size:11px;color:${color};font-weight:600">+${alertas.length-3} más →</span>`:`<span style="font-size:11px;color:${color};opacity:.7">Ver detalle →</span>`}
     </div>
   </div>`;
 }
 
 function badgeAlertas(){
-  const n=calcAlertasActivas().length;
+  const n=calcAlertas().length;
   if(n===0)return '';
-  const criticas=calcAlertasActivas().filter(a=>a.nivel==='critico').length;
+  const criticas=calcAlertas().filter(a=>a.nivel==='critico').length;
   return `<span style="position:absolute;top:-5px;right:-5px;background:${criticas>0?'#dc2626':'#d97706'};color:#fff;border-radius:9px;min-width:18px;height:18px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;pointer-events:none;line-height:1">${n}</span>`;
 }
 
@@ -1989,7 +1958,7 @@ function pgDueno(){
   const totTienda=txTurno.filter(t=>t.tipo==='tienda').reduce((a,t)=>a+t.monto,0);
   const totGastos=txTurno.filter(t=>t.tipo==='gasto').reduce((a,t)=>a+t.monto,0);
   const efectivoCaja=(s.caja.montoInicial||0)+bols.efectivo+txTurno.filter(t=>t.tipo==='ingreso_caja').reduce((a,t)=>a+t.monto,0)-totGastos;
-  const alertas=calcAlertasActivas();
+  const alertas=calcAlertas();
   const ultimas=s.transacciones.filter(t=>!t.anulada).slice(0,8);
   const pct=st.total?Math.round(st.ocupadas/st.total*100):0;
   return `
@@ -3292,6 +3261,48 @@ function pgMantenimiento(){
     <h3>✓ Resueltos (${resueltos.length})</h3>
     ${resueltos.slice(0,20).map(renderTicket).join('')}
   </div>`:''}
+
+  <!-- HISTORIAL DE FISCALIZACIÓN -->
+  ${(()=>{
+    const key='avd_fiscalizacion_'+s.id;
+    let hist=[];try{hist=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){}
+    const hace30d=Date.now()-30*24*60*60*1000;
+    hist=hist.filter(a=>new Date(a.fecha).getTime()>hace30d);
+    if(hist.length===0)return '';
+    // Agrupar por persona
+    const porPersona={};
+    hist.forEach(a=>{const p=a.personal||'Desconocido';if(!porPersona[p])porPersona[p]=[];porPersona[p].push(a);});
+    return `<div class="panel" style="border-left:4px solid #dc2626">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div>
+          <h3 style="margin:0;color:#991b1b">🚨 Historial de Fiscalización (30 días)</h3>
+          <div style="font-size:12px;color:var(--txt2);margin-top:2px">${hist.length} irregularidad${hist.length>1?'es':''} registrada${hist.length>1?'s':''}</div>
+        </div>
+        <button class="btn-out" style="font-size:12px;padding:6px 12px;border-radius:8px;color:var(--rojo);border-color:#fca5a5;cursor:pointer" onclick="if(confirm('¿Limpiar todo el historial de fiscalización?')){localStorage.removeItem('avd_fiscalizacion_'+sede().id);render();}">🗑 Limpiar</button>
+      </div>
+      <!-- Resumen por persona -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        ${Object.entries(porPersona).sort((a,b)=>b[1].length-a[1].length).map(([nom,casos])=>`
+        <div style="background:${casos.length>=3?'#fef2f2':casos.length>=2?'#fffbeb':'#f8fafc'};border:1px solid ${casos.length>=3?'#fca5a5':casos.length>=2?'#fde047':'#e2e8f0'};border-radius:10px;padding:8px 14px;min-width:120px">
+          <div style="font-weight:800;font-size:13px;color:${casos.length>=3?'#991b1b':casos.length>=2?'#92400e':'#64748b'}">${nom.split(' ')[0]}</div>
+          <div style="font-size:18px;font-weight:900;color:${casos.length>=3?'#dc2626':casos.length>=2?'#d97706':'#64748b'}">${casos.length}x</div>
+          <div style="font-size:10px;color:#64748b">${casos.length>=3?'🔴 Frecuente':casos.length>=2?'🟡 Repetido':'🟢 Una vez'}</div>
+        </div>`).join('')}
+      </div>
+      <!-- Lista de casos -->
+      <div style="max-height:280px;overflow-y:auto">
+        ${hist.slice(0,50).map(a=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">
+          <div style="width:32px;height:32px;background:${(porPersona[a.personal||'']||[]).length>=3?'#fee2e2':'#fef3c7'};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:${(porPersona[a.personal||'']||[]).length>=3?'#991b1b':'#92400e'};flex-shrink:0">${a.hab_num}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:var(--txt)">${a.personal||'Desconocido'} <span style="font-weight:400;color:var(--txt2)">· Hab. ${a.hab_num}</span></div>
+            <div style="font-size:11px;color:var(--txt3)">${a.fecha?new Date(a.fecha).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</div>
+          </div>
+          <div style="font-size:10px;background:#fee2e2;color:#991b1b;border-radius:6px;padding:2px 7px;font-weight:700;flex-shrink:0">Sin alquiler</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  })()}
   `;
 }
 
@@ -4572,77 +4583,33 @@ function modalHTML(){
 
 
   if(m==='alertasDetalle'){
-    const alertas=calcAlertasActivas();
-    const historial=getAlertasHistorial();
+    const alertas=calcAlertas();
     if(alertas.length===0){
-      return modal('🔔 Alertas',`
-        <div class="empty" style="padding:30px 0 10px"><div style="font-size:38px;margin-bottom:10px">✅</div><div style="font-weight:700">Sin alertas activas</div><div style="font-size:13px;margin-top:6px;color:var(--txt2)">Todo marcha bien por el momento.</div></div>
-        ${historial.length?`<div style="margin-top:16px;border-top:1px solid var(--borde);padding-top:14px">
-          <div style="font-weight:700;font-size:12px;color:var(--txt2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">📋 Historial reciente</div>
-          ${historial.slice(0,8).map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f1f5f9">
-            <span style="font-size:16px">${a.icono||'•'}</span>
-            <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--txt)">${a.titulo||''}</div><div style="font-size:11px;color:var(--txt2)">${a.vista_en?new Date(a.vista_en).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</div></div>
-          </div>`).join('')}
-          <button class="btn btn-out" style="margin-top:10px;font-size:12px" onclick="localStorage.removeItem(_keyAlertasHistorial?.()??'');cerrarModal();render()">Limpiar historial</button>
-        </div>`:''}
-        <div style="margin-top:16px;text-align:right"><button class="btn btn-out" onclick="cerrarModal()">Cerrar</button></div>
-      `,540);
+      return modal('🔔 Alertas',`<div class="empty" style="padding:40px 0"><div style="font-size:38px;margin-bottom:10px">✅</div><div style="font-weight:700">Sin alertas activas</div><div style="font-size:13px;margin-top:6px;color:var(--txt2)">Todo marcha bien por el momento.</div></div>`,420);
     }
     const grupos=[
-      {tipo:'mantenimiento',label:'🔧 Mantenimiento urgente',alertas:alertas.filter(a=>a.tipo==='mantenimiento')},
-      {tipo:'habitacion',label:'🏨 Habitaciones',alertas:alertas.filter(a=>a.tipo==='habitacion')},
+      {tipo:'habitacion',label:'🏨 Habitaciones vencidas',alertas:alertas.filter(a=>a.tipo==='habitacion')},
       {tipo:'reserva',   label:'📅 Reservas sin check-in',alertas:alertas.filter(a=>a.tipo==='reserva')},
       {tipo:'stock',     label:'📦 Stock bajo',            alertas:alertas.filter(a=>a.tipo==='stock')},
-      {tipo:'cortesia',  label:'🎁 Cortesías / Sorteos',   alertas:alertas.filter(a=>a.tipo==='cortesia')},
     ].filter(g=>g.alertas.length>0);
-    return modal(`<span>🔔 Alertas activas · <span style="color:${alertas.some(a=>a.nivel==='critico')?'#dc2626':'#d97706'}">${alertas.length}</span></span>`,`
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;gap:8px">
-      <button class="btn btn-out" style="font-size:12px;padding:5px 10px" onclick="abrirModal('alertasHistorial')">📋 Ver historial</button>
-      <button class="btn btn-out" style="font-size:12px;padding:5px 10px;color:var(--verde);border-color:#86efac" onclick="marcarTodasVistas()">✓ Marcar todas como vistas</button>
-    </div>
+    return modal(`<span>🔔 Alertas activas · <span style="color:${alertas.some(a=>a.nivel==='critico')?'#dc2626':'#d97706'}">${alertas.length} alerta${alertas.length>1?'s':''}</span></span>`,`
     ${grupos.map(g=>`
       <div style="margin-bottom:16px">
-        <div style="font-weight:700;font-size:12px;margin-bottom:8px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${g.label}</div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${g.label}</div>
         ${g.alertas.map(a=>`
-          <div style="background:${a.nivel==='critico'?'#fff5f5':a.nivel==='advertencia'?'#fffbeb':'#f0fdf4'};border:1px solid ${a.nivel==='critico'?'#fca5a5':a.nivel==='advertencia'?'#fde047':'#86efac'};border-left:4px solid ${a.nivel==='critico'?'#dc2626':a.nivel==='advertencia'?'#d97706':'#16a34a'};border-radius:9px;padding:10px 12px;margin-bottom:8px">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">
-              <div style="flex:1;min-width:0">
-                <div style="font-weight:700;font-size:13px;color:${a.nivel==='critico'?'#991b1b':'#92400e'}">${a.icono} ${a.titulo}</div>
-                <div style="font-size:12px;color:${a.nivel==='critico'?'#991b1b':'#92400e'};opacity:.8;margin-top:2px">${a.desc}</div>
-              </div>
-              <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
-                ${a.id&&a.nivel!=='critico'?`<button class="btn-out" style="padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;color:#64748b;border-color:#e2e8f0" onclick="marcarAlertaVista('${a.id}',${JSON.stringify(JSON.stringify(a))});cerrarModal();render()">✓ Vista</button>`:''}
-                ${a.accion?`<button class="btn-out" style="padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;color:${a.nivel==='critico'?'#991b1b':'#92400e'};border-color:${a.nivel==='critico'?'#fca5a5':'#fde047'};background:#fff" onclick="cerrarModal();${a.accion.fn}">${a.accion.label}</button>`:''}
-              </div>
+          <div style="background:${a.nivel==='critico'?'#fff5f5':'#fffbeb'};border:1px solid ${a.nivel==='critico'?'#fca5a5':'#fde047'};border-left:4px solid ${a.nivel==='critico'?'#dc2626':'#d97706'};border-radius:9px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <div>
+              <div style="font-weight:700;font-size:13px;color:${a.nivel==='critico'?'#991b1b':'#92400e'}">${a.icono} ${a.titulo}</div>
+              <div style="font-size:12px;color:${a.nivel==='critico'?'#991b1b':'#92400e'};opacity:.8;margin-top:3px">${a.desc}</div>
             </div>
+            <button class="btn-out" style="padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;white-space:nowrap;color:${a.nivel==='critico'?'#991b1b':'#92400e'};border-color:${a.nivel==='critico'?'#fca5a5':'#fde047'};background:#fff" onclick="cerrarModal();${a.accion.fn}">${a.accion.label}</button>
           </div>`).join('')}
       </div>`).join('')}
     <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--borde);flex-wrap:wrap;gap:8px">
-      <div style="font-size:12px;color:var(--txt2)">Umbral stock: <b>${getUmbralStock()} uds</b> · <span style="cursor:pointer;color:var(--azul)" onclick="cerrarModal();nav('config')">Cambiar</span></div>
+      <div style="font-size:12px;color:var(--txt2)">Umbral stock bajo: <b>${getUmbralStock()} unidades</b> · <span style="cursor:pointer;color:var(--azul);text-decoration:underline" onclick="cerrarModal();nav('config')">Cambiar en Config</span></div>
       <button class="btn btn-out" onclick="cerrarModal()">Cerrar</button>
     </div>
-    `,660);
-  }
-
-  if(m==='alertasHistorial'){
-    const historial=getAlertasHistorial();
-    return modal('📋 Historial de alertas',`
-      ${historial.length===0?`<div class="empty" style="padding:30px 0"><div style="font-size:32px;margin-bottom:8px">📭</div><div style="font-weight:700">Sin historial aún</div><div style="font-size:13px;margin-top:4px;color:var(--txt2)">Aquí aparecerán las alertas que marques como vistas.</div></div>`:`
-      <div style="max-height:420px;overflow-y:auto;padding-right:4px">
-        ${historial.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f1f5f9">
-          <span style="font-size:18px;flex-shrink:0">${a.icono||'•'}</span>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:600;color:var(--txt)">${a.titulo||''}</div>
-            <div style="font-size:11px;color:var(--txt2);margin-top:1px">${a.desc||''}</div>
-          </div>
-          <div style="font-size:11px;color:var(--txt3);white-space:nowrap;flex-shrink:0">${a.vista_en?new Date(a.vista_en).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</div>
-        </div>`).join('')}
-      </div>
-      <div style="margin-top:12px;display:flex;justify-content:space-between;gap:8px">
-        <button class="btn btn-out" style="font-size:12px;color:var(--rojo);border-color:#fca5a5" onclick="if(confirm('¿Limpiar todo el historial de alertas?')){localStorage.removeItem('${_keyAlertasHistorial()}');cerrarModal();}">🗑 Limpiar historial</button>
-        <button class="btn btn-out" onclick="cerrarModal()">Cerrar</button>
-      </div>`}
-    `,560);
+    `,640);
   }
 
   return '';
@@ -4801,25 +4768,10 @@ window.resolverMantenimiento=async(id)=>{
   const costo=parseFloat(costoStr)||t.costo||0;
   t.estado='resuelto';t.fecha_resuelto=new Date().toISOString();t.resuelto_por=UI.session?.nombre||'';t.costo=costo;
   // Liberar la habitación si estaba bloqueada
-  if(t.bloquea_alquiler){
-    const h=s.habitaciones.find(x=>x.num===t.hab_num);
-    if(h&&h.estado==='mantenimiento'){
-      h.estado='limpieza';
-      await dbUpdateHab(s.id,t.hab_num,{estado:'limpieza'});
-    }
-  }
-  // Guardar en historial de alertas resueltas
-  try{
-    const key='avd_alertas_historial_'+s.id;
-    const hist=JSON.parse(localStorage.getItem(key)||'[]');
-    hist.unshift({tipo:'mantenimiento',titulo:'Mantenimiento resuelto · Hab. '+t.hab_num,desc:t.problema||'',fecha:new Date().toISOString(),resuelto_por:t.resuelto_por});
-    localStorage.setItem(key,JSON.stringify(hist.slice(0,200)));
-  }catch(e){}
-  showToast('✅ Mantenimiento resuelto · Hab. '+t.hab_num);
-  // Forzar recarga completa para que el dashboard se actualice
-  await dbUpdateMantenimiento(s.id,id,{estado:'resuelto',fecha_resuelto:t.fecha_resuelto,resuelto_por:t.resuelto_por,costo});
-  await cargarTodo();
+  if(t.bloquea_alquiler){const h=s.habitaciones.find(x=>x.num===t.hab_num);if(h&&h.estado==='mantenimiento'){h.estado='limpieza';await dbUpdateHab(s.id,t.hab_num,{estado:'limpieza'});}}
+  showToast('Mantenimiento resuelto · Hab. '+t.hab_num);
   render();
+  await dbUpdateMantenimiento(s.id,id,{estado:'resuelto',fecha_resuelto:t.fecha_resuelto,resuelto_por:t.resuelto_por,costo});
 };
 window.borrarMantenimiento=async(id)=>{
   if(!confirm('¿Eliminar este reporte de mantenimiento?'))return;
@@ -5274,16 +5226,65 @@ window.recibirLlave=async(num)=>{
 window.verificarCruceLimpieza=(habNum,personal)=>{
   const s=sede();
   const hace24h=Date.now()-24*60*60*1000;
+  const hace30d=Date.now()-30*24*60*60*1000;
   const tuvoAlquiler=s.transacciones.some(t=>!t.anulada&&t.tipo==='hospedaje'&&new Date(t.fecha).getTime()>hace24h&&(t.desc||'').includes('Habitación '+habNum));
   const fueCortesia=s.habitaciones.find(h=>h.num===habNum)?.invitado_de;
   if(!tuvoAlquiler&&!fueCortesia){
-    // Guardar alerta de fiscalización
-    const alerta={id:'fisc_'+Date.now(),hab_num:habNum,personal,fecha:new Date().toISOString(),tipo:'limpieza_sin_alquiler'};
-    try{const prev=JSON.parse(localStorage.getItem('avd_fiscalizacion_'+s.id)||'[]');prev.unshift(alerta);localStorage.setItem('avd_fiscalizacion_'+s.id,JSON.stringify(prev.slice(0,100)));}catch(e){}
-    s.alertasFiscal=s.alertasFiscal||[];s.alertasFiscal.unshift(alerta);
-    const msgWA=`🚨 *ALERTA DE FISCALIZACIÓN*\n\nHotel: ${s.nombre||s.id}\nLa habitación *${habNum}* fue marcada como limpiada por ${personal||'limpieza'}, pero *NO figura ningún alquiler registrado* en las últimas 24 horas.\n\n⚠️ Posible alquiler sin registrar en el sistema.\nFecha: ${new Date().toLocaleString('es-PE')}`;
-    setTimeout(()=>modalNotificarAdmin('🚨 Limpieza sin alquiler registrado',msgWA),600);
+    const ahora=new Date();
+    const alerta={
+      id:'fisc_'+Date.now(),
+      hab_num:habNum,
+      personal,
+      fecha:ahora.toISOString(),
+      hora:ahora.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}),
+      tipo:'limpieza_sin_alquiler',
+      sede:s.nombre||s.id
+    };
+    // Guardar en historial localStorage (30 días)
+    const key='avd_fiscalizacion_'+s.id;
+    let hist=[];
+    try{hist=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){}
+    // Limpiar entradas > 30 días
+    hist=hist.filter(a=>new Date(a.fecha).getTime()>hace30d);
+    hist.unshift(alerta);
+    localStorage.setItem(key,JSON.stringify(hist.slice(0,500)));
+    s.alertasFiscal=s.alertasFiscal||[];
+    s.alertasFiscal.unshift(alerta);
+
+    // Análisis de frecuencia: ¿cuántas veces esta persona en 30 días?
+    const casosPersona=hist.filter(a=>a.personal===personal&&a.tipo==='limpieza_sin_alquiler');
+    const esReincidente=casosPersona.length>1;
+    const vecesTexto=casosPersona.length===1?'primera vez':`${casosPersona.length} veces en los últimos 30 días ⚠️`;
+
+    // Mensaje WhatsApp con análisis de frecuencia
+    const msgWA=`🚨 *ALERTA DE FISCALIZACIÓN*\n\nHotel: ${s.nombre||s.id}\nHabitación *${habNum}* marcada como limpiada por *${personal||'limpieza'}*, pero *NO figura ningún alquiler registrado* en las últimas 24 horas.\n\n⚠️ Posible alquiler sin registrar.\nFecha: ${ahora.toLocaleString('es-PE')}\n\n${esReincidente?`🔴 *REINCIDENCIA: ${personal} ha tenido ${vecesTexto} con esta irregularidad.*`:`ℹ️ Primera vez que ocurre con ${personal}.`}`;
+
+    setTimeout(()=>modalNotificarAdminFiscal('🚨 Limpieza sin alquiler registrado',msgWA,{personal,habNum,vecesTexto,esReincidente,fecha:ahora.toLocaleString('es-PE'),sede:s.nombre||s.id}),600);
   }
+};
+
+// Modal mejorado con info de frecuencia
+window.modalNotificarAdminFiscal=(titulo,msg,datos={})=>{
+  const old=document.getElementById('_admNotif');if(old)old.remove();
+  const div=document.createElement('div');div.id='_admNotif';
+  div.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+  div.innerHTML=`
+    <div style="background:#fff;border-radius:20px;padding:28px;width:100%;max-width:400px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.5)">
+      <div style="font-size:40px;margin-bottom:6px">📱</div>
+      <div style="font-size:17px;font-weight:900;color:#991b1b;margin-bottom:8px">${titulo}</div>
+      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px;font-size:12px;text-align:left;color:#7f1d1d;margin-bottom:10px">
+        <div>🏨 <b>${datos.sede||''}</b> · Hab. <b>${datos.habNum||''}</b></div>
+        <div style="margin-top:4px">👤 Personal: <b>${datos.personal||''}</b></div>
+        <div style="margin-top:4px">🕐 <b>${datos.fecha||''}</b></div>
+        ${datos.esReincidente?`<div style="margin-top:8px;background:#fee2e2;border-radius:6px;padding:6px;font-weight:800;color:#991b1b">🔴 REINCIDENTE: ${datos.vecesTexto}</div>`:`<div style="margin-top:6px;color:#b45309">ℹ️ Primera irregularidad registrada</div>`}
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:16px">Para continuar, debes notificar al administrador por WhatsApp.</div>
+      <button onclick="(()=>{const n=getWAAdmin();if(n){window.open('https://wa.me/51'+n+'?text='+encodeURIComponent(${JSON.stringify(msg)}),'_blank');}else{alert('Configura el WhatsApp del administrador en Configuración');}document.getElementById('_admNotif').remove();})()"
+        style="width:100%;padding:16px;border-radius:14px;border:none;background:#16a34a;color:#fff;font-size:16px;font-weight:900;cursor:pointer;margin-bottom:10px">📲 Enviar mensaje al administrador</button>
+      <button onclick="document.getElementById('_admNotif').remove()"
+        style="width:100%;padding:11px;border-radius:12px;border:2px solid var(--borde);background:#fff;font-size:14px;font-weight:700;color:var(--txt2);cursor:pointer">Cerrar sin enviar</button>
+    </div>`;
+  document.body.appendChild(div);
 };
 
 window.addCarrito=id=>{const s=sede();const p=s.productos.find(x=>x.id===id);if(p.stock<=0){alert('Sin stock');return;}
@@ -7163,38 +7164,58 @@ window.registrarAcceso=(session)=>{
 // ============================================================
 function pgLimpiezaSimple(){
   const s=sede();
-  const porLimpiar=s.habitaciones.filter(h=>h.estado==='limpieza');
+  // Todas las habitaciones excepto ocupadas y en mantenimiento
+  const limpStatus=['limpieza','libre','limpia_llave','reservada'];
+  const todasHabs=s.habitaciones.filter(h=>limpStatus.includes(h.estado));
   const llavePend=s.habitaciones.filter(h=>h.estado==='limpia_llave');
+  // Historial de limpiezas de esta sesión (turno actual)
+  const apertura=s.caja.apertura?new Date(s.caja.apertura):null;
+  const misLimpiezas=(s.limpiezas||[]).filter(l=>l.personal===UI.session?.nombre&&apertura&&new Date(l.fecha)>=apertura);
+
+  // Colores y etiquetas por estado
+  const colCard={limpieza:'#fffbeb',libre:'#f0fdf4',limpia_llave:'#ecfeff',reservada:'#eff6ff'};
+  const borCard={limpieza:'#fbbf24',libre:'#86efac',limpia_llave:'#67e8f9',reservada:'#93c5fd'};
+  const lblCard={limpieza:'🧹 Por limpiar',libre:'✅ Libre',limpia_llave:'🔑 Lista',reservada:'📅 Reservada'};
+  const txtCard={limpieza:'#92400e',libre:'#15803d',limpia_llave:'#0e7490',reservada:'#1e40af'};
+
   return `
-  <div style="max-width:680px;margin:0 auto;padding:8px">
-    <div style="text-align:center;margin-bottom:18px">
-      <div style="font-size:24px;font-weight:900;color:var(--txt)">🧹 Hola, ${UI.session?.nombre?.split(' ')[0]||''}</div>
-      <div style="font-size:14px;color:var(--txt2);margin-top:4px">Toca la habitación que terminaste de limpiar</div>
+  <div style="max-width:700px;margin:0 auto;padding:8px">
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:22px;font-weight:900;color:var(--txt)">🧹 Hola, ${UI.session?.nombre?.split(' ')[0]||''}</div>
+      <div style="font-size:13px;color:var(--txt2);margin-top:3px">Selecciona la habitación que limpiaste</div>
     </div>
-    ${porLimpiar.length===0?`
-    <div style="text-align:center;padding:50px 20px;background:#f0fdf4;border:2px solid #86efac;border-radius:18px">
-      <div style="font-size:60px;margin-bottom:10px">✅</div>
-      <div style="font-size:20px;font-weight:900;color:#15803d">¡No hay habitaciones por limpiar!</div>
+
+    ${misLimpiezas.length>0?`
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#15803d">
+      <b>✓ Limpiezas en este turno:</b>
+      ${misLimpiezas.map(l=>`<span style="margin-left:6px;background:#dcfce7;padding:2px 8px;border-radius:20px">${l.hab_num} · ${new Date(l.fecha).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}</span>`).join('')}
+    </div>`:''}
+
+    ${todasHabs.length===0?`
+    <div style="text-align:center;padding:40px 20px;background:#f0fdf4;border:2px solid #86efac;border-radius:18px">
+      <div style="font-size:50px;margin-bottom:10px">✅</div>
+      <div style="font-size:18px;font-weight:900;color:#15803d">No hay habitaciones disponibles</div>
     </div>`:`
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px">
-      ${porLimpiar.map(h=>`
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px">
+      ${todasHabs.map(h=>`
       <button onclick="limpiezaSimpleMarcar('${h.num}')"
-        style="background:#fffbeb;border:3px solid #fbbf24;border-radius:18px;padding:26px 10px;cursor:pointer;text-align:center;transition:transform .1s"
-        ontouchstart="this.style.transform='scale(.96)'" ontouchend="this.style.transform='none'">
-        <div style="font-size:40px;font-weight:900;color:#92400e">${h.num}</div>
-        <div style="font-size:13px;color:#b45309;font-weight:700;margin-top:6px">${h.tipo||''}</div>
-        <div style="margin-top:10px;background:#d97706;color:#fff;border-radius:10px;padding:8px;font-size:14px;font-weight:900">✓ LIMPIÉ ESTA</div>
+        style="background:${colCard[h.estado]||'#f8fafc'};border:2.5px solid ${borCard[h.estado]||'#e2e8f0'};border-radius:16px;padding:22px 10px;cursor:pointer;text-align:center;transition:transform .1s;width:100%"
+        ontouchstart="this.style.transform='scale(.95)'" ontouchend="this.style.transform='none'">
+        <div style="font-size:36px;font-weight:900;color:${txtCard[h.estado]||'#1e293b'}">${h.num}</div>
+        <div style="font-size:11px;color:${txtCard[h.estado]||'#64748b'};font-weight:600;margin-top:4px">${h.tipo||''}</div>
+        <div style="margin-top:10px;background:${borCard[h.estado]||'#e2e8f0'};border-radius:8px;padding:7px;font-size:12px;font-weight:800;color:${txtCard[h.estado]||'#1e293b'}">${lblCard[h.estado]||h.estado}</div>
       </button>`).join('')}
     </div>`}
+
     ${llavePend.length>0?`
-    <div style="margin-top:24px">
-      <div style="font-size:13px;font-weight:800;color:#0891b2;margin-bottom:10px">🔑 Limpias — falta entregar la llave en recepción:</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        ${llavePend.map(h=>`<div style="background:#ecfeff;border:2px solid #67e8f9;border-radius:12px;padding:10px 18px;font-size:18px;font-weight:900;color:#0e7490">🔑 ${h.num}</div>`).join('')}
+    <div style="margin-top:18px;background:#ecfeff;border:1px solid #67e8f9;border-radius:12px;padding:10px 14px">
+      <div style="font-size:12px;font-weight:800;color:#0891b2;margin-bottom:8px">🔑 Pendientes de entregar llave en recepción:</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${llavePend.map(h=>`<span style="background:#fff;border:1.5px solid #67e8f9;border-radius:10px;padding:6px 14px;font-size:16px;font-weight:900;color:#0e7490">🔑 ${h.num}</span>`).join('')}
       </div>
-      <div style="font-size:12px;color:var(--txt3);margin-top:8px">Cuando bajes, entrega las llaves y recepción las marcará como disponibles.</div>
     </div>`:''}
-    <button onclick="clearSessionYSalir()" style="margin-top:30px;width:100%;padding:16px;border-radius:14px;border:2px solid var(--borde);background:#fff;font-size:15px;font-weight:800;color:var(--txt2);cursor:pointer">Cerrar sesión</button>
+
+    <button onclick="clearSessionYSalir()" style="margin-top:24px;width:100%;padding:14px;border-radius:12px;border:2px solid var(--borde);background:#fff;font-size:14px;font-weight:800;color:var(--txt2);cursor:pointer">Cerrar sesión</button>
   </div>`;
 }
 window.limpiezaSimpleMarcar=(num)=>{
@@ -8121,7 +8142,7 @@ async function sincronizarSilencioso(){
 }
 function iniciarSyncAutomatico(){
   if(_syncInterval)clearInterval(_syncInterval);
-  _syncInterval=setInterval(sincronizarSilencioso,30000); // cada 30 segundos
+  _syncInterval=setInterval(sincronizarSilencioso,5000); // cada 5 segundos
   // Sincronizar al volver a la pestaña
   document.addEventListener('visibilitychange',()=>{
     if(!document.hidden&&UI.session&&!UI.modal&&window._guardando===0&&Date.now()-(window._ultimaEscritura||0)>8000&&Date.now()-_ultimaSync>10000){
