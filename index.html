@@ -673,6 +673,7 @@ const IC={eye:'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z M12 9a3 3 0 1 0 0 6 
   wrench:'M14.7 6.3a4 4 0 00-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 005.4-5.4l-2.7 2.7-2-2 2.7-2.7z',
   bell:'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
   logOut:'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+  inbox:'M22 12h-6l-2 3h-4l-2-3H2 M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
 };
 function icon(n,s){s=s||20;return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${IC[n]||''}"/></svg>`;}
 
@@ -959,36 +960,96 @@ async function _guardar(op,msgErr){
   }
 }
 async function dbUpdateSede(sedeId,updates){return _guardar({tabla:'sedes',accion:'update',sedeId,datos:updates},'sede '+sedeId);}
-async function dbInsertPersonal(sedeId,p){setSync('working','Guardando...');try{await sb.from('personal').insert({...p,sede_id:sedeId});setSync('ok','Guardado');}catch(e){setSync('err','Error al guardar');}}
-async function dbUpdatePersonal(sedeId,id,updates){setSync('working','Guardando...');try{await sb.from('personal').update(updates).eq('id',id).eq('sede_id',sedeId);setSync('ok','Guardado');}catch(e){setSync('err','Error al guardar');}}
-async function dbDeletePersonal(sedeId,id){setSync('working','Guardando...');try{await sb.from('personal').delete().eq('id',id).eq('sede_id',sedeId);setSync('ok','Guardado');}catch(e){setSync('err','Error al guardar');}}
+async function dbInsertPersonal(sedeId,p){return _saveInsert('personal',{...p,sede_id:sedeId},'personal');}
+async function dbUpdatePersonal(sedeId,id,updates){return _saveUpdate('personal',updates,{id,sede_id:sedeId},'personal');}
+async function dbDeletePersonal(sedeId,id){return _saveDelete('personal',{id,sede_id:sedeId},'personal');}
 async function dbUpdateHab(sedeId,habNum,updates){return _guardar({tabla:'habitaciones',accion:'update',sedeId,num:habNum,datos:updates},'hab '+habNum);}
 async function dbInsertTx(sedeId,tx){
   if(!tx.turno){try{const s=DB.sedes.find(x=>x.id===sedeId);if(s&&s.caja&&s.caja.abierta)tx.turno=(s.caja.turno||'')+' · '+new Date(s.caja.apertura).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' · '+(s.caja.responsable||'');}catch(e){}}
   return _guardar({tabla:'transacciones',accion:'insert',datos:{id:tx.id,sede_id:sedeId,tipo:tx.tipo,descripcion:tx.desc,monto:tx.monto,metodo:tx.metodo,fecha:tx.fecha,responsable:tx.responsable||null,turno:tx.turno||null}},'tx '+tx.id);}
-async function dbInsertLimpieza(sedeId,l){setSync('working','Guardando...');try{await sb.from('limpiezas').insert({...l,sede_id:sedeId});setSync('ok','Guardado');}catch(e){setSync('err','Error al guardar');}}
-async function dbInsertMovStock(sedeId,m){setSync('working','Guardando...');try{await sb.from('stock_movimientos').insert({...m,sede_id:sedeId});setSync('ok','Guardado');}catch(e){setSync('err','Error al guardar');}}
-async function dbInsertSolicitud(sedeId,s){setSync('working','Guardando...');try{await sb.from('stock_solicitudes').insert({...s,sede_id:sedeId});setSync('ok','Guardado');}catch(e){setSync('err','Error al guardar');}}
-async function dbUpdateSolicitud(sedeId,id,updates){setSync('working','Guardando...');try{await sb.from('stock_solicitudes').update(updates).eq('id',id).eq('sede_id',sedeId);setSync('ok','Guardado');}catch(e){setSync('err','Error al guardar');}}
-async function dbInsertProd(sedeId,p){setSync('working','Guardando...');try{await sb.from('productos').insert({...p,sede_id:sedeId});setSync('ok','Guardado');}catch(e){setSync('err','Error al guardar');}}
-async function dbUpdateProd(sedeId,id,updates){setSync('working','Guardando...');try{await sb.from('productos').update(updates).eq('id',id).eq('sede_id',sedeId);setSync('ok','Guardado');}catch(e){setSync('err','Error al guardar');}}
-async function dbDeleteProd(sedeId,id){setSync('working','Guardando...');try{await sb.from('productos').delete().eq('id',id).eq('sede_id',sedeId);setSync('ok','Guardado');}catch(e){setSync('err','Error al guardar');}}
-async function dbInsertHab(sedeId,h){setSync('working','Guardando...');try{await sb.from('habitaciones').insert({...h,sede_id:sedeId});setSync('ok','Guardado');}catch(e){setSync('err','Error al guardar');}}
-async function dbDeleteHab(sedeId,num){setSync('working','Guardando...');try{await sb.from('habitaciones').delete().eq('sede_id',sedeId).eq('num',num);setSync('ok','Guardado');}catch(e){setSync('err','Error al guardar');}}
-async function dbUpsertHuesped(sedeId,h){setSync('working','Guardando...');try{const{data}=await sb.from('huespedes').select('id').eq('sede_id',sedeId).eq('num_doc',h.num_doc).eq('tipo_doc',h.tipo_doc).maybeSingle();if(data){const updFields={visitas:h.visitas,ultima_visita:h.ultima_visita,nombre:h.nombre,celular:h.celular,residencia:h.residencia,motivo:h.motivo};if(h.vehiculos)updFields.vehiculos=h.vehiculos;await sb.from('huespedes').update(updFields).eq('id',data.id);return data.id;}else{const nuevo={id:'hu_'+Date.now()+Math.floor(Math.random()*1000),sede_id:sedeId,...h};await sb.from('huespedes').insert(nuevo);return nuevo.id;}}catch(e){setSync('err','Error al guardar');return null;}finally{setSync('ok','Guardado');}}
+async function dbInsertLimpieza(sedeId,l){return _saveInsert('limpiezas',{...l,sede_id:sedeId},'limpieza');}
+async function dbInsertMovStock(sedeId,m){return _saveInsert('stock_movimientos',{...m,sede_id:sedeId},'movimiento de stock');}
+async function dbInsertSolicitud(sedeId,s){return _saveInsert('stock_solicitudes',{...s,sede_id:sedeId},'solicitud');}
+async function dbUpdateSolicitud(sedeId,id,updates){return _saveUpdate('stock_solicitudes',updates,{id,sede_id:sedeId},'solicitud');}
+// Detecta columna faltante en el mensaje de error de Supabase y la quita para reintentar
+function _columnaFaltante(err){
+  if(!err)return null;
+  const msg=(err.message||err.hint||err.details||'')+'';
+  // PGRST204: column not found in schema cache · 42703: undefined column
+  let m=msg.match(/column ["']?([a-z_0-9]+)["']? .* does not exist/i)||msg.match(/Could not find the ['"]?([a-z_0-9]+)['"]? column/i)||msg.match(/['"]([a-z_0-9]+)['"] column/i);
+  return m?m[1]:null;
+}
+async function _insertDefensivo(tabla,obj){
+  let payload={...obj};
+  for(let intento=0;intento<8;intento++){
+    const {error}=await sb.from(tabla).insert(payload);
+    if(!error)return {ok:true};
+    const col=_columnaFaltante(error);
+    if(col&&col in payload){delete payload[col];continue;} // quita la columna y reintenta
+    return {ok:false,error};
+  }
+  return {ok:false,error:{message:'Demasiados reintentos'}};
+}
+async function _updateDefensivo(tabla,updates,matchObj){
+  let payload={...updates};
+  for(let intento=0;intento<8;intento++){
+    let q=sb.from(tabla).update(payload);
+    for(const k in matchObj)q=q.eq(k,matchObj[k]);
+    const {error}=await q;
+    if(!error)return {ok:true};
+    const col=_columnaFaltante(error);
+    if(col&&col in payload){delete payload[col];continue;}
+    return {ok:false,error};
+  }
+  return {ok:false,error:{message:'Demasiados reintentos'}};
+}
+async function _deleteDefensivo(tabla,matchObj){
+  let q=sb.from(tabla).delete();
+  for(const k in matchObj)q=q.eq(k,matchObj[k]);
+  const {error}=await q;
+  return error?{ok:false,error}:{ok:true};
+}
+// Wrappers que reportan estado de sync y muestran error real en pantalla
+async function _saveInsert(tabla,obj,etiqueta){
+  setSync('working','Guardando...');
+  const r=await _insertDefensivo(tabla,obj);
+  if(r.ok)setSync('ok','Guardado');
+  else{setSync('err','Error al guardar');console.error('Insert '+(etiqueta||tabla)+':',r.error);showToast('⚠️ No se guardó '+(etiqueta||tabla)+': '+(r.error?.message||'error desconocido'),'alerta');}
+  return r;
+}
+async function _saveUpdate(tabla,updates,matchObj,etiqueta){
+  setSync('working','Guardando...');
+  const r=await _updateDefensivo(tabla,updates,matchObj);
+  if(r.ok)setSync('ok','Guardado');
+  else{setSync('err','Error al guardar');console.error('Update '+(etiqueta||tabla)+':',r.error);showToast('⚠️ No se actualizó '+(etiqueta||tabla)+': '+(r.error?.message||'error desconocido'),'alerta');}
+  return r;
+}
+async function _saveDelete(tabla,matchObj,etiqueta){
+  setSync('working','Guardando...');
+  const r=await _deleteDefensivo(tabla,matchObj);
+  if(r.ok)setSync('ok','Guardado');
+  else{setSync('err','Error al borrar');console.error('Delete '+(etiqueta||tabla)+':',r.error);showToast('⚠️ No se borró '+(etiqueta||tabla)+': '+(r.error?.message||'error desconocido'),'alerta');}
+  return r;
+}
+async function dbInsertProd(sedeId,p){return _saveInsert('productos',{...p,sede_id:sedeId},'producto');}
+async function dbUpdateProd(sedeId,id,updates){return _saveUpdate('productos',updates,{id,sede_id:sedeId},'producto');}
+async function dbDeleteProd(sedeId,id){return _saveDelete('productos',{id,sede_id:sedeId},'producto');}
+async function dbInsertHab(sedeId,h){return _saveInsert('habitaciones',{...h,sede_id:sedeId},'habitación');}
+async function dbDeleteHab(sedeId,num){return _saveDelete('habitaciones',{sede_id:sedeId,num},'habitación');}
+async function dbUpsertHuesped(sedeId,h){setSync('working','Guardando...');try{const{data}=await sb.from('huespedes').select('id').eq('sede_id',sedeId).eq('num_doc',h.num_doc).eq('tipo_doc',h.tipo_doc).maybeSingle();if(data){const updFields={visitas:h.visitas,ultima_visita:h.ultima_visita,nombre:h.nombre,celular:h.celular,residencia:h.residencia,motivo:h.motivo};if(h.vehiculos)updFields.vehiculos=h.vehiculos;const r=await _updateDefensivo('huespedes',updFields,{id:data.id});if(!r.ok)throw r.error;return data.id;}else{const nuevo={id:'hu_'+Date.now()+Math.floor(Math.random()*1000),sede_id:sedeId,...h};const r=await _insertDefensivo('huespedes',nuevo);if(!r.ok)throw r.error;return nuevo.id;}}catch(e){setSync('err','Error al guardar');console.error('Huésped:',e);showToast('⚠️ No se guardó huésped: '+(e?.message||'error'),'alerta');return null;}finally{if(UI.sync!=='err')setSync('ok','Guardado');}}
 /* ===== DB RESERVAS Y PLATAFORMAS ===== */
-async function dbInsertReserva(sedeId,r){setSync('working','Guardando...');try{await sb.from('reservas').insert({...r,sede_id:sedeId});setSync('ok','Guardado');}catch(e){console.error(e);setSync('err','Error al guardar reserva');}}
-async function dbUpdateReserva(sedeId,id,updates){setSync('working','Guardando...');try{await sb.from('reservas').update(updates).eq('id',id).eq('sede_id',sedeId);setSync('ok','Guardado');}catch(e){console.error(e);setSync('err','Error al actualizar');}}
-async function dbDeleteReserva(sedeId,id){setSync('working','Guardando...');try{await sb.from('reservas').delete().eq('id',id).eq('sede_id',sedeId);setSync('ok','Guardado');}catch(e){setSync('err','Error al borrar');}}
-async function dbInsertCajaChica(sedeId,m){setSync('working','Guardando...');try{await sb.from('caja_chica').insert({...m,sede_id:sedeId});setSync('ok','Guardado');}catch(e){console.error(e);setSync('err','Error');}}
-async function dbInsertCierre(sedeId,cierre){setSync('working','Guardando...');try{await sb.from('cierres_historial').insert({...cierre,sede_id:sedeId,datos:JSON.stringify(cierre.datos)});setSync('ok','Guardado');}catch(e){console.error(e);setSync('err','Error al guardar cierre');}}
-async function dbInsertLavanderia(sedeId,r){setSync('working','Guardando...');try{await sb.from('lavanderia').insert({...r,sede_id:sedeId});setSync('ok','Guardado');}catch(e){console.error(e);setSync('err','Error');}}
-async function dbInsertMantenimiento(sedeId,m){setSync('working','Guardando...');try{await sb.from('mantenimiento').insert({...m,sede_id:sedeId});setSync('ok','Guardado');}catch(e){console.error(e);setSync('err','Error');}}
-async function dbUpdateMantenimiento(sedeId,id,u){setSync('working','Guardando...');try{await sb.from('mantenimiento').update(u).eq('id',id).eq('sede_id',sedeId);setSync('ok','Guardado');}catch(e){console.error(e);setSync('err','Error');}}
-async function dbDeleteMantenimiento(sedeId,id){setSync('working','Guardando...');try{await sb.from('mantenimiento').delete().eq('id',id).eq('sede_id',sedeId);setSync('ok','Guardado');}catch(e){setSync('err','Error');}}
-async function dbInsertPlataforma(sedeId,p){setSync('working','Guardando...');try{await sb.from('plataformas_reserva').insert({...p,sede_id:sedeId});setSync('ok','Guardado');}catch(e){setSync('err','Error');}}
-async function dbUpdatePlataforma(sedeId,id,updates){setSync('working','Guardando...');try{await sb.from('plataformas_reserva').update(updates).eq('id',id).eq('sede_id',sedeId);setSync('ok','Guardado');}catch(e){setSync('err','Error');}}
-async function dbDeletePlataforma(sedeId,id){setSync('working','Guardando...');try{await sb.from('plataformas_reserva').delete().eq('id',id).eq('sede_id',sedeId);setSync('ok','Guardado');}catch(e){setSync('err','Error');}}
+async function dbInsertReserva(sedeId,r){return _saveInsert('reservas',{...r,sede_id:sedeId},'reserva');}
+async function dbUpdateReserva(sedeId,id,updates){return _saveUpdate('reservas',updates,{id,sede_id:sedeId},'reserva');}
+async function dbDeleteReserva(sedeId,id){return _saveDelete('reservas',{id,sede_id:sedeId},'reserva');}
+async function dbInsertCajaChica(sedeId,m){return _saveInsert('caja_chica',{...m,sede_id:sedeId},'caja chica');}
+async function dbInsertCierre(sedeId,cierre){return _saveInsert('cierres_historial',{...cierre,sede_id:sedeId,datos:JSON.stringify(cierre.datos)},'cierre de caja');}
+async function dbInsertLavanderia(sedeId,r){return _saveInsert('lavanderia',{...r,sede_id:sedeId},'lavandería');}
+async function dbInsertMantenimiento(sedeId,m){return _saveInsert('mantenimiento',{...m,sede_id:sedeId},'mantenimiento');}
+async function dbUpdateMantenimiento(sedeId,id,u){return _saveUpdate('mantenimiento',u,{id,sede_id:sedeId},'mantenimiento');}
+async function dbDeleteMantenimiento(sedeId,id){return _saveDelete('mantenimiento',{id,sede_id:sedeId},'mantenimiento');}
+async function dbInsertPlataforma(sedeId,p){return _saveInsert('plataformas_reserva',{...p,sede_id:sedeId},'plataforma');}
+async function dbUpdatePlataforma(sedeId,id,updates){return _saveUpdate('plataformas_reserva',updates,{id,sede_id:sedeId},'plataforma');}
+async function dbDeletePlataforma(sedeId,id){return _saveDelete('plataformas_reserva',{id,sede_id:sedeId},'plataforma');}
 
 /* ============ MANEJO DE IMÁGENES ============ */
 function procesarImagen(file,targetId){
@@ -1094,12 +1155,13 @@ function render(){window._ultimoRender=Date.now();
         ['caja','cajas','Cajas',false],
         ['finanzas','finanzas','Finanzas',false],
         ['trending','analytics','Analytics',true],
+        ['inbox','solicitudes','Solicitudes',true],
         ['wrench','mantenimiento','Mantenimiento',false],
         ['clock','historial','Historial',false],
         ['eye','dueno','Panel Dueño',true],
         ['config','config','Config',true],
       ]).filter(([,,,adminOnly])=>!adminOnly||UI.adminAuth)
-        .map(([ic,id,lb,adminOnly])=>`<button class="navitem ${UI.pagina===id?'active':''}" onclick="nav('${id}')">${icon(ic,20)}<span class="navitem-text">${lb}${adminOnly?'<span class="admin-badge">ADMIN</span>':''}</span></button>`).join('')}
+        .map(([ic,id,lb,adminOnly])=>{const pend=id==='solicitudes'?((s.solicitudes||[]).filter(x=>x.estado==='pendiente').length):0;return `<button class="navitem ${UI.pagina===id?'active':''}" onclick="nav('${id}')">${icon(ic,20)}<span class="navitem-text">${lb}${pend>0?`<span style="background:var(--rojo);color:#fff;padding:0 6px;border-radius:9px;font-size:10px;font-weight:700;margin-left:6px">${pend}</span>`:''}${adminOnly?'<span class="admin-badge">ADMIN</span>':''}</span></button>`;}).join('')}
       <!-- Pastilla caja al fondo -->
       <div class="sidebar-caja">
         <div class="caja-dot ${!s.caja.abierta?'closed':''}"></div>
@@ -1165,6 +1227,7 @@ function pagina(){
   if(UI.pagina==='finanzas')return pgFinanzas();
   if(UI.pagina==='analytics')return pgAnalytics();
   if(UI.pagina==='mantenimiento')return pgMantenimiento();
+  if(UI.pagina==='solicitudes')return pgSolicitudes();
   if(UI.pagina==='config')return pgConfig();
   if(UI.pagina==='limpiezaSimple')return pgLimpiezaSimple();
   if(UI.pagina==='historial')return pgHistorial();
@@ -3261,48 +3324,91 @@ function pgMantenimiento(){
     <h3>✓ Resueltos (${resueltos.length})</h3>
     ${resueltos.slice(0,20).map(renderTicket).join('')}
   </div>`:''}
+  `;
+}
 
-  <!-- HISTORIAL DE FISCALIZACIÓN -->
-  ${(()=>{
-    const key='avd_fiscalizacion_'+s.id;
-    let hist=[];try{hist=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){}
-    const hace30d=Date.now()-30*24*60*60*1000;
-    hist=hist.filter(a=>new Date(a.fecha).getTime()>hace30d);
-    if(hist.length===0)return '';
-    // Agrupar por persona
-    const porPersona={};
-    hist.forEach(a=>{const p=a.personal||'Desconocido';if(!porPersona[p])porPersona[p]=[];porPersona[p].push(a);});
-    return `<div class="panel" style="border-left:4px solid #dc2626">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-        <div>
-          <h3 style="margin:0;color:#991b1b">🚨 Historial de Fiscalización (30 días)</h3>
-          <div style="font-size:12px;color:var(--txt2);margin-top:2px">${hist.length} irregularidad${hist.length>1?'es':''} registrada${hist.length>1?'s':''}</div>
-        </div>
-        <button class="btn-out" style="font-size:12px;padding:6px 12px;border-radius:8px;color:var(--rojo);border-color:#fca5a5;cursor:pointer" onclick="if(confirm('¿Limpiar todo el historial de fiscalización?')){localStorage.removeItem('avd_fiscalizacion_'+sede().id);render();}">🗑 Limpiar</button>
-      </div>
-      <!-- Resumen por persona -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-        ${Object.entries(porPersona).sort((a,b)=>b[1].length-a[1].length).map(([nom,casos])=>`
-        <div style="background:${casos.length>=3?'#fef2f2':casos.length>=2?'#fffbeb':'#f8fafc'};border:1px solid ${casos.length>=3?'#fca5a5':casos.length>=2?'#fde047':'#e2e8f0'};border-radius:10px;padding:8px 14px;min-width:120px">
-          <div style="font-weight:800;font-size:13px;color:${casos.length>=3?'#991b1b':casos.length>=2?'#92400e':'#64748b'}">${nom.split(' ')[0]}</div>
-          <div style="font-size:18px;font-weight:900;color:${casos.length>=3?'#dc2626':casos.length>=2?'#d97706':'#64748b'}">${casos.length}x</div>
-          <div style="font-size:10px;color:#64748b">${casos.length>=3?'🔴 Frecuente':casos.length>=2?'🟡 Repetido':'🟢 Una vez'}</div>
-        </div>`).join('')}
-      </div>
-      <!-- Lista de casos -->
-      <div style="max-height:280px;overflow-y:auto">
-        ${hist.slice(0,50).map(a=>`
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">
-          <div style="width:32px;height:32px;background:${(porPersona[a.personal||'']||[]).length>=3?'#fee2e2':'#fef3c7'};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:${(porPersona[a.personal||'']||[]).length>=3?'#991b1b':'#92400e'};flex-shrink:0">${a.hab_num}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:700;color:var(--txt)">${a.personal||'Desconocido'} <span style="font-weight:400;color:var(--txt2)">· Hab. ${a.hab_num}</span></div>
-            <div style="font-size:11px;color:var(--txt3)">${a.fecha?new Date(a.fecha).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</div>
+function pgSolicitudes(){
+  const s=sede();
+  if(!UI.adminAuth){
+    return `<div class="page-head"><div><h2>📥 Solicitudes</h2></div></div>
+      <div class="panel" style="text-align:center;padding:40px 20px">
+        <div style="font-size:40px;margin-bottom:10px">🔐</div>
+        <div style="font-weight:700;margin-bottom:6px">Acceso de administrador requerido</div>
+        <div style="font-size:13px;color:var(--txt2);margin-bottom:16px">Las solicitudes solo las puede revisar el administrador.</div>
+        <button class="btn btn-azul" onclick="abrirModal('adminLogin')">🔐 Ingresar como Admin</button>
+      </div>`;
+  }
+  const sols=s.solicitudes||[];
+  const fEstado=UI.solFEstado||'pendiente';
+  const fTipo=UI.solFTipo||'';
+  const TIPOS={stock:'📦 Stock',nuevo_producto:'🆕 Nuevo producto',editar_producto:'✏️ Editar producto'};
+  const filtradas=sols.filter(x=>{
+    const tipoSol=x.tipo_sol||'stock';
+    if(fEstado&&x.estado!==fEstado)return false;
+    if(fTipo&&tipoSol!==fTipo)return false;
+    return true;
+  });
+  const cuenta={pendiente:sols.filter(x=>x.estado==='pendiente').length,aprobado:sols.filter(x=>x.estado==='aprobado').length,rechazado:sols.filter(x=>x.estado==='rechazado').length};
+
+  const renderSol=(sol)=>{
+    const tipoSol=sol.tipo_sol||'stock';
+    let detalle='';
+    if(tipoSol==='stock'){
+      detalle=`<div style="font-size:13px">Agregar <b>+${sol.cantidad}</b> unidades a <b>${sol.producto_nombre}</b></div>`;
+    }else if(tipoSol==='nuevo_producto'){
+      let d={};try{d=JSON.parse(sol.datos);}catch(e){}
+      detalle=`<div style="font-size:13px"><b>${d.nombre||sol.producto_nombre}</b> · ${d.cat||''} · Venta: S/${d.venta||0} · Compra: S/${d.compra||0} · Stock inicial: ${d.stock||0}</div>`;
+    }else if(tipoSol==='editar_producto'){
+      let d={};try{d=JSON.parse(sol.datos);}catch(e){}
+      const a=d.antes||{},b=d.despues||{};
+      const cambios=[];
+      if(a.nombre!==b.nombre)cambios.push(`Nombre: "${a.nombre}" → "${b.nombre}"`);
+      if(a.venta!==b.venta)cambios.push(`Venta: S/${a.venta} → S/${b.venta}`);
+      if(a.compra!==b.compra)cambios.push(`Compra: S/${a.compra} → S/${b.compra}`);
+      if(a.cat!==b.cat)cambios.push(`Categoría: ${a.cat} → ${b.cat}`);
+      detalle=`<div style="font-size:13px"><b>${sol.producto_nombre}</b></div><div style="font-size:12px;color:var(--txt2);margin-top:3px">${cambios.length?cambios.join(' · '):'Sin cambios visibles'}</div>`;
+    }
+    const colEstado={pendiente:'#d97706',aprobado:'#16a34a',rechazado:'#dc2626'};
+    const bgEstado={pendiente:'#fffbeb',aprobado:'#f0fdf4',rechazado:'#fef2f2'};
+    return `<div style="background:${bgEstado[sol.estado]};border:1px solid var(--borde);border-left:4px solid ${colEstado[sol.estado]};border-radius:10px;padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+            <span style="background:#e0e7ff;color:#3730a3;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">${TIPOS[tipoSol]||tipoSol}</span>
+            <span style="font-size:11px;color:var(--txt2)">👤 ${sol.solicitante||'—'}</span>
+            <span style="font-size:11px;color:var(--txt3)">🕐 ${fmtFechaHora(sol.fecha)}</span>
           </div>
-          <div style="font-size:10px;background:#fee2e2;color:#991b1b;border-radius:6px;padding:2px 7px;font-weight:700;flex-shrink:0">Sin alquiler</div>
-        </div>`).join('')}
+          ${detalle}
+          ${sol.estado==='rechazado'&&sol.motivo_rechazo?`<div style="font-size:11px;color:#991b1b;margin-top:4px">Motivo: ${sol.motivo_rechazo}</div>`:''}
+          ${sol.estado!=='pendiente'?`<div style="font-size:11px;color:var(--txt3);margin-top:4px">Resuelto: ${fmtFechaHora(sol.fecha_decision)}</div>`:''}
+        </div>
+        ${sol.estado==='pendiente'?`<div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${(tipoSol==='nuevo_producto'||tipoSol==='editar_producto')?`<button class="btn-out" style="padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;color:#7c3aed;border-color:#c4b5fd;background:#f3e8ff" onclick="editarSolicitud('${sol.id}')">✏️ Editar</button>`:''}
+          <button class="btn-out" style="padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;color:var(--verde);border-color:#86efac;background:#dcfce7" onclick="aprobarSolicitud('${sol.id}')">✓ Aprobar</button>
+          <button class="btn-out" style="padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;color:var(--rojo);border-color:#fca5a5;background:#fee2e2" onclick="rechazarSolicitud('${sol.id}')">✕ Rechazar</button>
+        </div>`:`<span style="font-size:12px;font-weight:700;color:${colEstado[sol.estado]}">${sol.estado==='aprobado'?'✓ Aprobado':'✕ Rechazado'}</span>`}
       </div>
     </div>`;
-  })()}
+  };
+
+  return `
+  <div class="page-head"><div><h2>📥 Solicitudes</h2><div class="page-sub">Aprobaciones de recepción: stock, productos nuevos y ediciones</div></div></div>
+
+  <!-- Filtros por estado -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    ${[['pendiente',`⏳ Pendientes (${cuenta.pendiente})`],['aprobado',`✓ Aprobadas (${cuenta.aprobado})`],['rechazado',`✕ Rechazadas (${cuenta.rechazado})`],['','Todas']].map(([k,lb])=>`
+      <button onclick="UI.solFEstado='${k}';render()" style="padding:8px 14px;border-radius:999px;border:1.5px solid ${fEstado===k?'var(--azul)':'var(--borde)'};background:${fEstado===k?'var(--azul)':'#fff'};color:${fEstado===k?'#fff':'var(--txt2)'};font-size:12px;font-weight:700;cursor:pointer">${lb}</button>`).join('')}
+  </div>
+
+  <!-- Filtro por tipo -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+    ${[['','Todos los tipos'],['stock','📦 Stock'],['nuevo_producto','🆕 Nuevos'],['editar_producto','✏️ Ediciones']].map(([k,lb])=>`
+      <button onclick="UI.solFTipo='${k}';render()" style="padding:6px 12px;border-radius:8px;border:1px solid ${fTipo===k?'#7c3aed':'var(--borde)'};background:${fTipo===k?'#f3e8ff':'#fff'};color:${fTipo===k?'#6b21a8':'var(--txt2)'};font-size:12px;font-weight:600;cursor:pointer">${lb}</button>`).join('')}
+  </div>
+
+  <div class="panel">
+    ${filtradas.length===0?`<div class="empty" style="padding:40px 0"><div style="font-size:36px;margin-bottom:8px">📭</div><div style="font-weight:700">Sin solicitudes ${fEstado==='pendiente'?'pendientes':''}</div><div style="font-size:13px;color:var(--txt2);margin-top:4px">Cuando recepción solicite algo, aparecerá aquí.</div></div>`:filtradas.map(renderSol).join('')}
+  </div>
   `;
 }
 
@@ -3311,13 +3417,11 @@ function pgConfig(){
   const bP=(UI.persBusq||'').toLowerCase();
   const recep=s.personal.filter(p=>p.rol==='recepcion'&&(!bP||p.nombre.toLowerCase().includes(bP)));
   const limp=s.personal.filter(p=>p.rol==='limpieza'&&(!bP||p.nombre.toLowerCase().includes(bP)));
-  return `
-  <div class="sec-head">
-    <div><div class="sec-title">Configuración</div><div class="sec-sub">Personal, sedes, respaldo y precios</div></div>
-    ${UI.adminAuth
-      ? `<button class="btn btn-out" onclick="cerrarSesionAdmin()">🔓 Salir modo Admin</button>`
-      : `<button class="btn btn-azul" onclick="abrirModal('adminLogin')">🔐 Ingresar como Admin</button>`}
-  </div>
+  const tab=UI.cfgTab||'personal';
+  const TABS=[['personal','👥 Personal'],['sedes','🏨 Sedes'],['precios','💲 Precios'],['alertas','🔔 Alertas y Tarifas'],['respaldo','💾 Respaldo']];
+
+  // ---- Secciones individuales ----
+  const secPersonal=()=>`
   <div class="panel" style="margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <h3 style="margin:0">👥 Personal — ${s.nombre}</h3>
@@ -3339,6 +3443,21 @@ function pgConfig(){
       </div>
     </div>
   </div>
+  ${UI.adminAuth?`
+  <div class="panel">
+    <h3>🔐 Registro de Accesos</h3>
+    <div style="font-size:12px;color:var(--txt2);margin-bottom:10px">Últimos inicios de sesión en este dispositivo. Registro permanente también en la nube (tabla accesos_log).</div>
+    <div style="max-height:300px;overflow-y:auto">
+      ${(()=>{let logs=[];try{logs=JSON.parse(localStorage.getItem('avd_accesos_log')||'[]');}catch(e){}
+        if(!logs.length)return '<div style="font-size:12px;color:var(--txt3);padding:8px 0">Sin accesos registrados aún en este dispositivo.</div>';
+        return logs.slice(0,50).map(l=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:7px 0;border-bottom:1px dashed var(--borde)">
+          <span><b>${l.nombre}</b> <span style="color:var(--txt3)">· ${l.rol==='admin'?'👑 admin':l.rol}</span></span>
+          <span style="color:var(--txt2);white-space:nowrap">${new Date(l.fecha).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} · ${l.dispositivo||''}</span>
+        </div>`).join('');})()}
+    </div>
+  </div>`:''}`;
+
+  const secSedes=()=>`
   <div class="grid2">
     <div class="panel">
       <h3>${icon('building',18)} Sedes / Hoteles</h3>
@@ -3354,88 +3473,97 @@ function pgConfig(){
       <div style="display:flex;gap:10px;align-items:center">
         <span style="font-size:18px">🇵🇪 +51</span>
         <input class="inp" id="cfgWA" type="tel" placeholder="987654321" maxlength="9" inputmode="numeric" value="${getWAAdmin()}" style="max-width:180px">
-        <button class="btn btn-azul" onclick="const v=document.getElementById('cfgWA').value.trim();if(!/^\d{9}$/.test(v)){alert('Ingresa 9 dígitos');}else{saveWAAdmin(v);alert('✓ Número guardado: +51'+v);}">Guardar</button>
+        <button class="btn btn-azul" onclick="const v=document.getElementById('cfgWA').value.trim();if(!/^\\d{9}$/.test(v)){alert('Ingresa 9 dígitos');}else{saveWAAdmin(v);alert('✓ Número guardado: +51'+v);}">Guardar</button>
         ${getWAAdmin()?`<a href="https://wa.me/51${getWAAdmin()}" target="_blank" class="btn-out" style="padding:9px 14px;border-radius:9px;font-size:12px;text-decoration:none;display:inline-block">🧪 Probar</a>`:''}
       </div>
     </div>
-    ${UI.adminAuth?`
-    <div class="panel">
-      <h3>🔐 Registro de Accesos</h3>
-      <div style="font-size:12px;color:var(--txt2);margin-bottom:10px">Últimos inicios de sesión en este dispositivo. Registro permanente también en la nube (tabla accesos_log).</div>
-      <div style="max-height:300px;overflow-y:auto">
-        ${(()=>{let logs=[];try{logs=JSON.parse(localStorage.getItem('avd_accesos_log')||'[]');}catch(e){}
-          if(!logs.length)return '<div style="font-size:12px;color:var(--txt3);padding:8px 0">Sin accesos registrados aún en este dispositivo.</div>';
-          return logs.slice(0,50).map(l=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:7px 0;border-bottom:1px dashed var(--borde)">
-            <span><b>${l.nombre}</b> <span style="color:var(--txt3)">· ${l.rol==='admin'?'👑 admin':l.rol}</span></span>
-            <span style="color:var(--txt2);white-space:nowrap">${new Date(l.fecha).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} · ${l.dispositivo||''}</span>
-          </div>`).join('');})()}
-      </div>
-    </div>`:''}
-    <div class="panel">
-      <h3>🏷️ Tarifas Especiales</h3>
-      <div style="font-size:13px;color:var(--txt2);margin-bottom:12px">Precios especiales para días específicos (fines de semana, feriados). Aparece como aviso en el check-in.</div>
-      ${(()=>{const DIAS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];const ts=getTarifasEspeciales(s.id);return `
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-          <input class="inp" id="cfgTarNom" placeholder="Ej: Fin de semana" style="max-width:160px">
-          <div style="display:flex;gap:4px">${[0,1,2,3,4,5,6].map(d=>`<label style="display:flex;align-items:center;gap:3px;cursor:pointer;padding:5px 8px;border:1px solid var(--borde);border-radius:6px;font-size:11px"><input type="checkbox" data-dia="${d}" class="cfgDiaCheck" style="margin:0">${DIAS[d]}</label>`).join('')}</div>
-          <select class="inp" id="cfgTarAjTipo" style="max-width:140px"><option value="porcentaje">% adicional</option><option value="suma">S/ adicional</option></select>
-          <input class="inp" id="cfgTarVal" type="number" min="0" placeholder="Valor" style="max-width:80px">
-          <button class="btn btn-azul" onclick="doNuevaTarifaEsp()">+ Agregar</button>
-        </div>
-        ${ts.length===0?'<div style="font-size:13px;color:var(--txt2)">Sin tarifas especiales.</div>':ts.map((t,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid var(--borde);border-radius:8px;margin-bottom:6px"><div style="font-size:13px"><b>${t.nombre}</b> <span class="chip">${(t.dias||[]).map(d=>DIAS[d]).join(', ')}</span> <span class="chip" style="background:#dcfce7;color:#15803d">+${t.ajuste_valor}${t.ajuste_tipo==='porcentaje'?'%':'S/'}</span></div><div style="display:flex;gap:5px"><button class="btn-out" style="padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer" onclick="toggleTarifaEsp(${i})">${t.activa?'✓':'○'}</button><button class="btn-out" style="padding:4px 8px;border-radius:6px;font-size:11px;color:var(--rojo);border-color:#fca5a5;cursor:pointer" onclick="borrarTarifaEsp(${i})">✕</button></div></div>`).join('')}`;})()}
-    </div>
-    <div class="panel">
-      <h3>🔔 Configuración de Alertas</h3>
-      <div style="font-size:13px;color:var(--txt2);margin-bottom:14px">Define a partir de cuántas unidades un producto se considera con "stock bajo".</div>
-      <div class="field">
-        <label>Umbral de stock bajo (unidades)</label>
-        <div style="display:flex;align-items:center;gap:10px">
-          <input class="inp" type="number" min="1" max="50" value="${getUmbralStock()}" id="cfgUmbral" style="max-width:100px;text-align:center;font-weight:700;font-size:16px">
-          <button class="btn btn-azul" onclick="guardarUmbral()">Guardar</button>
-          <span id="umbralMsg" style="font-size:12px;color:var(--verde);display:none">✓ Guardado</span>
-        </div>
-        <div style="font-size:12px;color:var(--txt2);margin-top:6px">Productos con stock ≤ este valor aparecen en las alertas. Por defecto: 3.</div>
-      </div>
-      <hr style="border:none;border-top:1px solid var(--borde);margin:14px 0">
-      <div style="font-size:13px;color:var(--txt2);margin-bottom:8px">Las alertas también se activan automáticamente cuando:</div>
-      <ul style="font-size:13px;color:var(--txt2);line-height:2;padding-left:20px;margin:0">
-        <li>🏨 Una habitación ocupada supera su hora de salida pactada</li>
-        <li>📅 Una reserva de hoy lleva más de 2 horas sin hacer check-in</li>
-      </ul>
-    </div>
-    <div class="panel">
-      <h3>${icon('download',18)} Exportar & Respaldo</h3>
-      <p style="font-size:13px;color:var(--txt2);margin-bottom:14px">Descarga tus datos como Excel (.xlsx) con múltiples hojas, o como respaldo completo en JSON.</p>
-      <button class="btn btn-verde btn-block" style="margin-bottom:10px" onclick="abrirModal('exportarDatos')">${icon('download',16)} Exportar a Excel / CSV</button>
-      <div style="font-size:11px;color:var(--txt2);text-align:center">Selecciona qué tablas y qué período exportar</div>
-      <hr style="border:none;border-top:1px solid var(--borde);margin:16px 0">
-      <h3>Conexión a la Nube</h3>
-      <div style="background:var(--verde-bg);border-radius:9px;padding:11px;font-size:12px;color:#15803d;margin-bottom:8px">
-        ✓ Conectado a Supabase<br>
-        <span style="opacity:.7">Tus datos se sincronizan automáticamente</span>
-      </div>
-      <button class="btn btn-out btn-block" onclick="cargarTodo()">${icon('refresh',16)} Recargar desde la nube</button>
-    </div>
-    <div class="panel" style="grid-column:1/-1">
-      <h3>Precios de habitaciones — ${s.nombre}</h3>
-      <table><thead><tr><th>Tipo</th><th>Cantidad</th><th>Por Horas</th><th>Estándar</th><th>Por Noche</th></tr></thead><tbody>
-        ${Object.entries(s.habitaciones.reduce((acc,h)=>{(acc[h.tipo]=acc[h.tipo]||[]).push(h);return acc;},{})).map(([tipo,hs])=>`
-          <tr><td style="font-weight:600">${tipo}</td><td>${hs.length}</td><td>${fmtS(hs[0].ph)}</td><td>${fmtS(hs[0].pe)}</td><td>${fmtS(hs[0].pn)}</td></tr>`).join('')}
-      </tbody></table>
-    </div>
-    ${UI.adminAuth?`
-    <div class="panel" style="grid-column:1/-1">
-      <h3>🏷️ Nombres de Habitaciones — ${s.nombre}</h3>
-      <div style="font-size:12px;color:var(--txt2);margin-bottom:14px">Asigna nombres especiales a tus habitaciones (ej: "Cuarto Rojo", "Suite Familiar"). Déjalo vacío si no aplica. Se guarda al salir del campo.</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
-        ${s.habitaciones.map(h=>`
-          <div style="border:1px solid var(--borde);border-radius:8px;padding:10px;background:#fafbfc">
-            <div style="font-size:11px;color:var(--txt2);margin-bottom:4px"><b>Hab. ${h.num}</b> · ${h.tipo}</div>
-            <input class="inp" value="${h.nombre||''}" placeholder="Sin nombre" onblur="setHabNombre('${h.num}',this.value)" style="padding:6px 10px;font-size:12px" maxlength="30">
-          </div>`).join('')}
-      </div>
-    </div>`:''}
   </div>`;
+
+  const secPrecios=()=>`
+  <div class="panel" style="margin-bottom:16px">
+    <h3>Precios de habitaciones — ${s.nombre}</h3>
+    <table><thead><tr><th>Tipo</th><th>Cantidad</th><th>Por Horas</th><th>Estándar</th><th>Por Noche</th></tr></thead><tbody>
+      ${Object.entries(s.habitaciones.reduce((acc,h)=>{(acc[h.tipo]=acc[h.tipo]||[]).push(h);return acc;},{})).map(([tipo,hs])=>`
+        <tr><td style="font-weight:600">${tipo}</td><td>${hs.length}</td><td>${fmtS(hs[0].ph)}</td><td>${fmtS(hs[0].pe)}</td><td>${fmtS(hs[0].pn)}</td></tr>`).join('')}
+    </tbody></table>
+  </div>
+  ${UI.adminAuth?`
+  <div class="panel">
+    <h3>🏷️ Nombres de Habitaciones — ${s.nombre}</h3>
+    <div style="font-size:12px;color:var(--txt2);margin-bottom:14px">Asigna nombres especiales a tus habitaciones (ej: "Cuarto Rojo", "Suite Familiar"). Déjalo vacío si no aplica. Se guarda al salir del campo.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
+      ${s.habitaciones.map(h=>`
+        <div style="border:1px solid var(--borde);border-radius:8px;padding:10px;background:#fafbfc">
+          <div style="font-size:11px;color:var(--txt2);margin-bottom:4px"><b>Hab. ${h.num}</b> · ${h.tipo}</div>
+          <input class="inp" value="${h.nombre||''}" placeholder="Sin nombre" onblur="setHabNombre('${h.num}',this.value)" style="padding:6px 10px;font-size:12px" maxlength="30">
+        </div>`).join('')}
+    </div>
+  </div>`:''}`;
+
+  const secAlertas=()=>`
+  <div class="panel" style="margin-bottom:16px">
+    <h3>🏷️ Tarifas Especiales</h3>
+    <div style="font-size:13px;color:var(--txt2);margin-bottom:12px">Precios especiales para días específicos (fines de semana, feriados). Aparece como aviso en el check-in.</div>
+    ${(()=>{const DIAS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];const ts=getTarifasEspeciales(s.id);return `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+        <input class="inp" id="cfgTarNom" placeholder="Ej: Fin de semana" style="max-width:160px">
+        <div style="display:flex;gap:4px">${[0,1,2,3,4,5,6].map(d=>`<label style="display:flex;align-items:center;gap:3px;cursor:pointer;padding:5px 8px;border:1px solid var(--borde);border-radius:6px;font-size:11px"><input type="checkbox" data-dia="${d}" class="cfgDiaCheck" style="margin:0">${DIAS[d]}</label>`).join('')}</div>
+        <select class="inp" id="cfgTarAjTipo" style="max-width:140px"><option value="porcentaje">% adicional</option><option value="suma">S/ adicional</option></select>
+        <input class="inp" id="cfgTarVal" type="number" min="0" placeholder="Valor" style="max-width:80px">
+        <button class="btn btn-azul" onclick="doNuevaTarifaEsp()">+ Agregar</button>
+      </div>
+      ${ts.length===0?'<div style="font-size:13px;color:var(--txt2)">Sin tarifas especiales.</div>':ts.map((t,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid var(--borde);border-radius:8px;margin-bottom:6px"><div style="font-size:13px"><b>${t.nombre}</b> <span class="chip">${(t.dias||[]).map(d=>DIAS[d]).join(', ')}</span> <span class="chip" style="background:#dcfce7;color:#15803d">+${t.ajuste_valor}${t.ajuste_tipo==='porcentaje'?'%':'S/'}</span></div><div style="display:flex;gap:5px"><button class="btn-out" style="padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer" onclick="toggleTarifaEsp(${i})">${t.activa?'✓':'○'}</button><button class="btn-out" style="padding:4px 8px;border-radius:6px;font-size:11px;color:var(--rojo);border-color:#fca5a5;cursor:pointer" onclick="borrarTarifaEsp(${i})">✕</button></div></div>`).join('')}`;})()}
+  </div>
+  <div class="panel">
+    <h3>🔔 Configuración de Alertas</h3>
+    <div style="font-size:13px;color:var(--txt2);margin-bottom:14px">Define a partir de cuántas unidades un producto se considera con "stock bajo".</div>
+    <div class="field">
+      <label>Umbral de stock bajo (unidades)</label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input class="inp" type="number" min="1" max="50" value="${getUmbralStock()}" id="cfgUmbral" style="max-width:100px;text-align:center;font-weight:700;font-size:16px">
+        <button class="btn btn-azul" onclick="guardarUmbral()">Guardar</button>
+        <span id="umbralMsg" style="font-size:12px;color:var(--verde);display:none">✓ Guardado</span>
+      </div>
+      <div style="font-size:12px;color:var(--txt2);margin-top:6px">Productos con stock ≤ este valor aparecen en las alertas. Por defecto: 3.</div>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--borde);margin:14px 0">
+    <div style="font-size:13px;color:var(--txt2);margin-bottom:8px">Las alertas también se activan automáticamente cuando:</div>
+    <ul style="font-size:13px;color:var(--txt2);line-height:2;padding-left:20px;margin:0">
+      <li>🏨 Una habitación ocupada supera su hora de salida pactada</li>
+      <li>📅 Una reserva de hoy lleva más de 2 horas sin hacer check-in</li>
+    </ul>
+  </div>`;
+
+  const secRespaldo=()=>`
+  <div class="panel">
+    <h3>${icon('download',18)} Exportar & Respaldo</h3>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:14px">Descarga tus datos como Excel (.xlsx) con múltiples hojas, o como respaldo completo en JSON.</p>
+    <button class="btn btn-verde btn-block" style="margin-bottom:10px" onclick="abrirModal('exportarDatos')">${icon('download',16)} Exportar a Excel / CSV</button>
+    <div style="font-size:11px;color:var(--txt2);text-align:center">Selecciona qué tablas y qué período exportar</div>
+    <hr style="border:none;border-top:1px solid var(--borde);margin:16px 0">
+    <h3>Conexión a la Nube</h3>
+    <div style="background:var(--verde-bg);border-radius:9px;padding:11px;font-size:12px;color:#15803d;margin-bottom:8px">
+      ✓ Conectado a Supabase<br>
+      <span style="opacity:.7">Tus datos se sincronizan automáticamente</span>
+    </div>
+    <button class="btn btn-out btn-block" onclick="cargarTodo()">${icon('refresh',16)} Recargar desde la nube</button>
+  </div>`;
+
+  const contenido={personal:secPersonal,sedes:secSedes,precios:secPrecios,alertas:secAlertas,respaldo:secRespaldo}[tab]||secPersonal;
+
+  return `
+  <div class="sec-head">
+    <div><div class="sec-title">Configuración</div><div class="sec-sub">Personal, sedes, respaldo y precios</div></div>
+    ${UI.adminAuth
+      ? `<button class="btn btn-out" onclick="cerrarSesionAdmin()">🔓 Salir modo Admin</button>`
+      : `<button class="btn btn-azul" onclick="abrirModal('adminLogin')">🔐 Ingresar como Admin</button>`}
+  </div>
+  <!-- Pestañas -->
+  <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;-webkit-overflow-scrolling:touch">
+    ${TABS.map(([k,lb])=>`<button onclick="UI.cfgTab='${k}';render()" style="flex-shrink:0;padding:9px 16px;border-radius:999px;border:1.5px solid ${tab===k?'var(--azul)':'var(--borde)'};background:${tab===k?'var(--azul)':'var(--panel)'};color:${tab===k?'#fff':'var(--txt2)'};font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">${lb}</button>`).join('')}
+  </div>
+  ${contenido()}
+  `;
 }
 
 /* ============ MODALES ============ */
@@ -5226,65 +5354,16 @@ window.recibirLlave=async(num)=>{
 window.verificarCruceLimpieza=(habNum,personal)=>{
   const s=sede();
   const hace24h=Date.now()-24*60*60*1000;
-  const hace30d=Date.now()-30*24*60*60*1000;
   const tuvoAlquiler=s.transacciones.some(t=>!t.anulada&&t.tipo==='hospedaje'&&new Date(t.fecha).getTime()>hace24h&&(t.desc||'').includes('Habitación '+habNum));
   const fueCortesia=s.habitaciones.find(h=>h.num===habNum)?.invitado_de;
   if(!tuvoAlquiler&&!fueCortesia){
-    const ahora=new Date();
-    const alerta={
-      id:'fisc_'+Date.now(),
-      hab_num:habNum,
-      personal,
-      fecha:ahora.toISOString(),
-      hora:ahora.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}),
-      tipo:'limpieza_sin_alquiler',
-      sede:s.nombre||s.id
-    };
-    // Guardar en historial localStorage (30 días)
-    const key='avd_fiscalizacion_'+s.id;
-    let hist=[];
-    try{hist=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){}
-    // Limpiar entradas > 30 días
-    hist=hist.filter(a=>new Date(a.fecha).getTime()>hace30d);
-    hist.unshift(alerta);
-    localStorage.setItem(key,JSON.stringify(hist.slice(0,500)));
-    s.alertasFiscal=s.alertasFiscal||[];
-    s.alertasFiscal.unshift(alerta);
-
-    // Análisis de frecuencia: ¿cuántas veces esta persona en 30 días?
-    const casosPersona=hist.filter(a=>a.personal===personal&&a.tipo==='limpieza_sin_alquiler');
-    const esReincidente=casosPersona.length>1;
-    const vecesTexto=casosPersona.length===1?'primera vez':`${casosPersona.length} veces en los últimos 30 días ⚠️`;
-
-    // Mensaje WhatsApp con análisis de frecuencia
-    const msgWA=`🚨 *ALERTA DE FISCALIZACIÓN*\n\nHotel: ${s.nombre||s.id}\nHabitación *${habNum}* marcada como limpiada por *${personal||'limpieza'}*, pero *NO figura ningún alquiler registrado* en las últimas 24 horas.\n\n⚠️ Posible alquiler sin registrar.\nFecha: ${ahora.toLocaleString('es-PE')}\n\n${esReincidente?`🔴 *REINCIDENCIA: ${personal} ha tenido ${vecesTexto} con esta irregularidad.*`:`ℹ️ Primera vez que ocurre con ${personal}.`}`;
-
-    setTimeout(()=>modalNotificarAdminFiscal('🚨 Limpieza sin alquiler registrado',msgWA,{personal,habNum,vecesTexto,esReincidente,fecha:ahora.toLocaleString('es-PE'),sede:s.nombre||s.id}),600);
+    // Guardar alerta de fiscalización
+    const alerta={id:'fisc_'+Date.now(),hab_num:habNum,personal,fecha:new Date().toISOString(),tipo:'limpieza_sin_alquiler'};
+    try{const prev=JSON.parse(localStorage.getItem('avd_fiscalizacion_'+s.id)||'[]');prev.unshift(alerta);localStorage.setItem('avd_fiscalizacion_'+s.id,JSON.stringify(prev.slice(0,100)));}catch(e){}
+    s.alertasFiscal=s.alertasFiscal||[];s.alertasFiscal.unshift(alerta);
+    const msgWA=`🚨 *ALERTA DE FISCALIZACIÓN*\n\nHotel: ${s.nombre||s.id}\nLa habitación *${habNum}* fue marcada como limpiada por ${personal||'limpieza'}, pero *NO figura ningún alquiler registrado* en las últimas 24 horas.\n\n⚠️ Posible alquiler sin registrar en el sistema.\nFecha: ${new Date().toLocaleString('es-PE')}`;
+    setTimeout(()=>modalNotificarAdmin('🚨 Limpieza sin alquiler registrado',msgWA),600);
   }
-};
-
-// Modal mejorado con info de frecuencia
-window.modalNotificarAdminFiscal=(titulo,msg,datos={})=>{
-  const old=document.getElementById('_admNotif');if(old)old.remove();
-  const div=document.createElement('div');div.id='_admNotif';
-  div.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
-  div.innerHTML=`
-    <div style="background:#fff;border-radius:20px;padding:28px;width:100%;max-width:400px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.5)">
-      <div style="font-size:40px;margin-bottom:6px">📱</div>
-      <div style="font-size:17px;font-weight:900;color:#991b1b;margin-bottom:8px">${titulo}</div>
-      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px;font-size:12px;text-align:left;color:#7f1d1d;margin-bottom:10px">
-        <div>🏨 <b>${datos.sede||''}</b> · Hab. <b>${datos.habNum||''}</b></div>
-        <div style="margin-top:4px">👤 Personal: <b>${datos.personal||''}</b></div>
-        <div style="margin-top:4px">🕐 <b>${datos.fecha||''}</b></div>
-        ${datos.esReincidente?`<div style="margin-top:8px;background:#fee2e2;border-radius:6px;padding:6px;font-weight:800;color:#991b1b">🔴 REINCIDENTE: ${datos.vecesTexto}</div>`:`<div style="margin-top:6px;color:#b45309">ℹ️ Primera irregularidad registrada</div>`}
-      </div>
-      <div style="font-size:11px;color:#64748b;margin-bottom:16px">Para continuar, debes notificar al administrador por WhatsApp.</div>
-      <button onclick="(()=>{const n=getWAAdmin();if(n){window.open('https://wa.me/51'+n+'?text='+encodeURIComponent(${JSON.stringify(msg)}),'_blank');}else{alert('Configura el WhatsApp del administrador en Configuración');}document.getElementById('_admNotif').remove();})()"
-        style="width:100%;padding:16px;border-radius:14px;border:none;background:#16a34a;color:#fff;font-size:16px;font-weight:900;cursor:pointer;margin-bottom:10px">📲 Enviar mensaje al administrador</button>
-      <button onclick="document.getElementById('_admNotif').remove()"
-        style="width:100%;padding:11px;border-radius:12px;border:2px solid var(--borde);background:#fff;font-size:14px;font-weight:700;color:var(--txt2);cursor:pointer">Cerrar sin enviar</button>
-    </div>`;
-  document.body.appendChild(div);
 };
 
 window.addCarrito=id=>{const s=sede();const p=s.productos.find(x=>x.id===id);if(p.stock<=0){alert('Sin stock');return;}
@@ -5447,9 +5526,18 @@ window.doNuevoProducto=async()=>{const s=sede();const nom=document.getElementByI
   const umbralRaw=document.getElementById('pUmbral')?.value;
   const autoCheckin=document.getElementById('pAutoCheckin')?.checked||false;
   const prod={id:'p'+Date.now(),nombre:nom,tipo,cat:document.getElementById('pCat').value||'General',compra:parseFloat(document.getElementById('pComp').value)||0,venta:ven,stock:parseInt(document.getElementById('pStk').value)||0,umbral_min:(umbralRaw!==''&&umbralRaw!=null)?parseInt(umbralRaw):null,imagen_url:document.getElementById('pImg').value.trim()||null,auto_checkin:autoCheckin&&tipo==='insumo'};
-  s.productos.push(prod);cerrarModal();
-  showToast('Producto agregado · '+prod.nombre);
-  await dbInsertProd(s.id,prod);render();};
+  if(UI.adminAuth){
+    // Admin: crea directo
+    s.productos.push(prod);cerrarModal();
+    showToast('Producto agregado · '+prod.nombre);
+    await dbInsertProd(s.id,prod);render();
+  }else{
+    // Recepción: genera solicitud al administrador
+    const sol={id:'sol_'+Date.now(),tipo_sol:'nuevo_producto',producto_nombre:prod.nombre,solicitante:UI.session?.nombre||s.caja.responsable||'Recepción',fecha:new Date().toISOString(),estado:'pendiente',datos:JSON.stringify(prod)};
+    s.solicitudes=[sol,...(s.solicitudes||[])];cerrarModal();
+    alert(`📝 Solicitud enviada al administrador.\n\nNuevo producto: ${prod.nombre}\n\nEl administrador debe aprobarlo para que aparezca en el sistema.`);
+    await dbInsertSolicitud(s.id,sol);render();
+  }};
 
 window.doConsumoInsumo=async()=>{
   const s=sede();const id=UI.modalData;const p=s.productos.find(x=>x.id===id);if(!p)return;
@@ -5472,8 +5560,16 @@ window.doEditarProducto=async(id)=>{const s=sede();const p=s.productos.find(x=>x
   if(!nom||!ven){alert('Completa nombre y precio de venta');return;}
   const epDescUso=document.getElementById('epDescUso')?.checked||false;
   const updates={nombre:nom,cat:document.getElementById('epCat').value||'General',compra:parseFloat(document.getElementById('epComp').value)||0,venta:ven,imagen_url:document.getElementById('epImg').value.trim()||null,auto_checkin:epDescUso,descuento_con_uso:epDescUso};
-  Object.assign(p,updates);cerrarModal();
-  await dbUpdateProd(s.id,id,updates);};
+  if(UI.adminAuth){
+    Object.assign(p,updates);cerrarModal();
+    showToast('Producto actualizado');
+    await dbUpdateProd(s.id,id,updates);render();
+  }else{
+    const sol={id:'sol_'+Date.now(),tipo_sol:'editar_producto',producto_id:id,producto_nombre:nom,solicitante:UI.session?.nombre||s.caja.responsable||'Recepción',fecha:new Date().toISOString(),estado:'pendiente',datos:JSON.stringify({antes:{nombre:p.nombre,cat:p.cat,compra:p.compra,venta:p.venta,imagen_url:p.imagen_url},despues:updates})};
+    s.solicitudes=[sol,...(s.solicitudes||[])];cerrarModal();
+    alert(`📝 Solicitud de edición enviada al administrador.\n\nProducto: ${nom}\n\nEl administrador debe aprobar los cambios.`);
+    await dbInsertSolicitud(s.id,sol);render();
+  }};
 
 window.borrarProducto=async(id)=>{
   if(!confirm('¿Eliminar este producto? No se puede deshacer.'))return;
@@ -5528,6 +5624,34 @@ window.doAddStock=async()=>{const s=sede();const p=s.productos.find(x=>x.id===UI
 window.aprobarSolicitud=async(id)=>{
   if(!UI.adminAuth){alert('Necesitas acceso de administrador');return;}
   const s=sede();const sol=s.solicitudes.find(x=>x.id===id);if(!sol||sol.estado!=='pendiente')return;
+  const tipoSol=sol.tipo_sol||'stock';
+
+  if(tipoSol==='nuevo_producto'){
+    let prod;try{prod=JSON.parse(sol.datos);}catch(e){alert('Datos de la solicitud corruptos');return;}
+    prod.id='p'+Date.now(); // id nuevo para evitar colisiones
+    s.productos.push(prod);
+    sol.estado='aprobado';sol.aprobado_por='Admin';sol.fecha_decision=new Date().toISOString();
+    render();
+    await dbInsertProd(s.id,prod);
+    await dbUpdateSolicitud(s.id,id,{estado:'aprobado',aprobado_por:'Admin',fecha_decision:sol.fecha_decision});
+    showToast('✓ Producto aprobado y creado · '+prod.nombre);
+    return;
+  }
+
+  if(tipoSol==='editar_producto'){
+    const p=s.productos.find(x=>x.id===sol.producto_id);
+    if(!p){alert('El producto ya no existe');return;}
+    let cambios;try{cambios=JSON.parse(sol.datos).despues;}catch(e){alert('Datos corruptos');return;}
+    Object.assign(p,cambios);
+    sol.estado='aprobado';sol.aprobado_por='Admin';sol.fecha_decision=new Date().toISOString();
+    render();
+    await dbUpdateProd(s.id,p.id,cambios);
+    await dbUpdateSolicitud(s.id,id,{estado:'aprobado',aprobado_por:'Admin',fecha_decision:sol.fecha_decision});
+    showToast('✓ Cambios aprobados · '+p.nombre);
+    return;
+  }
+
+  // Tipo por defecto: solicitud de stock
   const p=s.productos.find(x=>x.id===sol.producto_id);
   if(!p){alert('Producto no encontrado (puede haber sido eliminado)');return;}
   p.stock+=sol.cantidad;
@@ -5546,6 +5670,67 @@ window.rechazarSolicitud=async(id)=>{
   sol.estado='rechazado';sol.aprobado_por='Admin';sol.fecha_decision=new Date().toISOString();sol.motivo_rechazo=motivo;
   render();
   await dbUpdateSolicitud(s.id,id,{estado:'rechazado',aprobado_por:'Admin',fecha_decision:sol.fecha_decision,motivo_rechazo:motivo});
+};
+
+// Editar los datos de una solicitud antes de aprobarla
+window.editarSolicitud=(id)=>{
+  if(!UI.adminAuth){alert('Necesitas acceso de administrador');return;}
+  const s=sede();const sol=s.solicitudes.find(x=>x.id===id);if(!sol||sol.estado!=='pendiente')return;
+  const tipoSol=sol.tipo_sol||'stock';
+  let d={};try{d=JSON.parse(sol.datos);}catch(e){}
+  const prod=tipoSol==='nuevo_producto'?d:(d.despues||{});
+  const old=document.getElementById('_editSolOv');if(old)old.remove();
+  const div=document.createElement('div');div.id='_editSolOv';
+  div.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.8);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+  div.innerHTML=`
+    <div style="background:#fff;border-radius:18px;padding:26px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto">
+      <div style="font-size:17px;font-weight:900;margin-bottom:4px">✏️ Editar antes de aprobar</div>
+      <div style="font-size:12px;color:var(--txt2);margin-bottom:16px">Ajusta los datos solicitados por ${sol.solicitante||'recepción'} y luego aprueba.</div>
+      <div class="field"><label>Nombre</label><input class="inp" id="esNom" value="${(prod.nombre||sol.producto_nombre||'').replace(/"/g,'&quot;')}"></div>
+      <div class="field"><label>Categoría</label><input class="inp" id="esCat" value="${(prod.cat||'General').replace(/"/g,'&quot;')}"></div>
+      <div style="display:flex;gap:10px">
+        <div class="field" style="flex:1"><label>Precio compra</label><input class="inp" id="esComp" type="number" step="0.5" value="${prod.compra||0}"></div>
+        <div class="field" style="flex:1"><label>Precio venta</label><input class="inp" id="esVen" type="number" step="0.5" value="${prod.venta||0}"></div>
+      </div>
+      ${tipoSol==='nuevo_producto'?`<div class="field"><label>Stock inicial</label><input class="inp" id="esStk" type="number" value="${prod.stock||0}"></div>`:''}
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="btn btn-out" style="flex:1" onclick="document.getElementById('_editSolOv').remove()">Cancelar</button>
+        <button class="btn btn-verde" style="flex:2" onclick="guardarYAprobarSolicitud('${id}')">✓ Guardar y aprobar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+};
+
+window.guardarYAprobarSolicitud=async(id)=>{
+  const s=sede();const sol=s.solicitudes.find(x=>x.id===id);if(!sol||sol.estado!=='pendiente')return;
+  const tipoSol=sol.tipo_sol||'stock';
+  const nom=document.getElementById('esNom').value.trim();
+  const cat=document.getElementById('esCat').value.trim()||'General';
+  const compra=parseFloat(document.getElementById('esComp').value)||0;
+  const venta=parseFloat(document.getElementById('esVen').value)||0;
+  if(!nom){alert('El nombre es obligatorio');return;}
+  let d={};try{d=JSON.parse(sol.datos);}catch(e){}
+
+  if(tipoSol==='nuevo_producto'){
+    const stock=parseInt(document.getElementById('esStk').value)||0;
+    const prod={...d,nombre:nom,cat,compra,venta,stock,id:'p'+Date.now()};
+    s.productos.push(prod);
+    sol.estado='aprobado';sol.aprobado_por='Admin (editado)';sol.fecha_decision=new Date().toISOString();sol.datos=JSON.stringify(prod);
+    document.getElementById('_editSolOv')?.remove();render();
+    await dbInsertProd(s.id,prod);
+    await dbUpdateSolicitud(s.id,id,{estado:'aprobado',aprobado_por:'Admin (editado)',fecha_decision:sol.fecha_decision,datos:sol.datos});
+    showToast('✓ Producto creado con tus ajustes · '+prod.nombre);
+  }else if(tipoSol==='editar_producto'){
+    const p=s.productos.find(x=>x.id===sol.producto_id);
+    if(!p){alert('El producto ya no existe');document.getElementById('_editSolOv')?.remove();return;}
+    const cambios={nombre:nom,cat,compra,venta};
+    Object.assign(p,cambios);
+    sol.estado='aprobado';sol.aprobado_por='Admin (editado)';sol.fecha_decision=new Date().toISOString();
+    document.getElementById('_editSolOv')?.remove();render();
+    await dbUpdateProd(s.id,p.id,cambios);
+    await dbUpdateSolicitud(s.id,id,{estado:'aprobado',aprobado_por:'Admin (editado)',fecha_decision:sol.fecha_decision});
+    showToast('✓ Cambios aplicados con tus ajustes · '+p.nombre);
+  }
 };
 
 window.doNuevoGasto=async()=>{const s=sede();const desc=document.getElementById('gDesc').value.trim();const monto=parseFloat(document.getElementById('gMonto').value);
@@ -6728,9 +6913,13 @@ function pgAnalytics(){
 
   <div style="display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap">
     <button class="tab ${anTab==='overview'?'active':''}" onclick="setAnTab('overview')">📊 Resumen</button>
+    <button class="tab ${anTab==='ventas'?'active':''}" onclick="setAnTab('ventas')">🛒 Ventas</button>
+    <button class="tab ${anTab==='personal'?'active':''}" onclick="setAnTab('personal')">👥 Personal</button>
+    <button class="tab ${anTab==='ocupacion'?'active':''}" onclick="setAnTab('ocupacion')">🏨 Ocupación</button>
     <button class="tab ${anTab==='rentabilidad'?'active':''}" onclick="setAnTab('rentabilidad')">💰 Rentabilidad</button>
   </div>
   ${anTab==='rentabilidad'?renderRentabilidad(data):''}
+
   ${anTab==='overview'?renderAnalyticsDias(data&&data.sede?data.sede:sede())+`<!-- KPIs -->
   <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px">
     <div class="stat" style="background:linear-gradient(135deg,#15803d,#22c55e)">
@@ -6755,8 +6944,7 @@ function pgAnalytics(){
       <div class="sub">por transacción</div>
     </div>
   </div>
-
-  <!-- Desglose de ingresos -->
+  <!-- Ingresos por día y métodos de pago -->
   <div class="grid2" style="margin-bottom:18px">
     <div class="panel">
       <h3>📈 Ingresos por día</h3>
@@ -6767,8 +6955,20 @@ function pgAnalytics(){
       <div style="position:relative;height:260px">${Object.keys(data.porMetodo).length===0?'<div class="empty" style="padding:80px 0">Sin ingresos en este periodo</div>':'<canvas id="chartMetodos"></canvas>'}</div>
     </div>
   </div>
+  <!-- Desglose tipo ingreso -->
+  <div class="panel" style="margin-bottom:18px">
+    <h3>💵 Desglose de ingresos</h3>
+    <div class="g3" style="margin-top:10px">
+      <div style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:10px;padding:14px"><div style="font-size:11px;color:#1e40af;font-weight:700;text-transform:uppercase;letter-spacing:.6px">Hospedaje directo</div><div style="font-size:24px;font-weight:800;color:#1e3a8a;margin-top:4px">${fmtS(data.ingresos_hosp)}</div></div>
+      <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:10px;padding:14px"><div style="font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;letter-spacing:.6px">Tienda</div><div style="font-size:24px;font-weight:800;color:#78350f;margin-top:4px">${fmtS(data.ingresos_tienda)}</div></div>
+      <div style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);border-radius:10px;padding:14px"><div style="font-size:11px;color:#5b21b6;font-weight:700;text-transform:uppercase;letter-spacing:.6px">Reservas (adelantos/saldos)</div><div style="font-size:24px;font-weight:800;color:#4c1d95;margin-top:4px">${fmtS(data.ingresos_reservas)}</div></div>
+    </div>
+    <div style="margin-top:14px;padding:12px;background:#fff5f5;border-left:4px solid var(--rojo);border-radius:8px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;color:#991b1b;font-weight:600">(−) Gastos del periodo</span><span style="font-size:18px;font-weight:800;color:#991b1b">${fmtS(data.gastos)}</span></div></div>
+    <div style="margin-top:8px;padding:14px;background:${data.balance>=0?'var(--verde-bg)':'#fff5f5'};border-left:4px solid ${data.balance>=0?'var(--verde)':'var(--rojo)'};border-radius:8px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-weight:700;color:${data.balance>=0?'#15803d':'#991b1b'}">BALANCE NETO</span><span style="font-size:22px;font-weight:800;color:${data.balance>=0?'#15803d':'#991b1b'}">${fmtS(data.balance)}</span></div></div>
+  </div>
+  `:''}
 
-  <!-- Desglose por tipo y top productos -->
+  ${anTab==='ventas'?`
   <div class="grid2" style="margin-bottom:18px">
     <div class="panel">
       <h3>${icon('star',16)} Top 10 productos más vendidos</h3>
@@ -6781,20 +6981,13 @@ function pgAnalytics(){
         <div style="position:relative;height:300px"><canvas id="chartPlataformas"></canvas></div>`}
     </div>
   </div>
-
-  <!-- Desglose tipo ingreso -->
-  <div class="panel" style="margin-bottom:18px">
-    <h3>💵 Desglose de ingresos</h3>
-    <div class="g3" style="margin-top:10px">
-      <div style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:10px;padding:14px"><div style="font-size:11px;color:#1e40af;font-weight:700;text-transform:uppercase;letter-spacing:.6px">Hospedaje directo</div><div style="font-size:24px;font-weight:800;color:#1e3a8a;margin-top:4px">${fmtS(data.ingresos_hosp)}</div></div>
-      <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:10px;padding:14px"><div style="font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;letter-spacing:.6px">Tienda</div><div style="font-size:24px;font-weight:800;color:#78350f;margin-top:4px">${fmtS(data.ingresos_tienda)}</div></div>
-      <div style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);border-radius:10px;padding:14px"><div style="font-size:11px;color:#5b21b6;font-weight:700;text-transform:uppercase;letter-spacing:.6px">Reservas (adelantos/saldos)</div><div style="font-size:24px;font-weight:800;color:#4c1d95;margin-top:4px">${fmtS(data.ingresos_reservas)}</div></div>
-    </div>
-    <div style="margin-top:14px;padding:12px;background:#fff5f5;border-left:4px solid var(--rojo);border-radius:8px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;color:#991b1b;font-weight:600">(−) Gastos del periodo</span><span style="font-size:18px;font-weight:800;color:#991b1b">${fmtS(data.gastos)}</span></div></div>
-    <div style="margin-top:8px;padding:14px;background:${data.balance>=0?'var(--verde-bg)':'#fff5f5'};border-left:4px solid ${data.balance>=0?'var(--verde)':'var(--rojo)'};border-radius:8px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-weight:700;color:${data.balance>=0?'#15803d':'#991b1b'}">BALANCE NETO</span><span style="font-size:22px;font-weight:800;color:${data.balance>=0?'#15803d':'#991b1b'}">${fmtS(data.balance)}</span></div></div>
+  <div class="panel">
+    <h3>💳 Métodos de pago</h3>
+    <div style="position:relative;height:280px">${Object.keys(data.porMetodo).length===0?'<div class="empty" style="padding:80px 0">Sin ingresos en este periodo</div>':'<canvas id="chartMetodos"></canvas>'}</div>
   </div>
+  `:''}
 
-  <!-- Rankings de personal -->
+  ${anTab==='personal'?`
   <div class="grid2" style="margin-bottom:18px">
     <div class="panel">
       <h3>👤 Ranking de Recepción (por ventas)</h3>
@@ -6813,8 +7006,9 @@ function pgAnalytics(){
         </tbody></table>`;})()}
     </div>
   </div>
+  `:''}
 
-  <!-- Ocupación por habitación -->
+  ${anTab==='ocupacion'?`
   <div class="panel">
     <h3>${icon('bar',16)} Ocupación por habitación (transacciones de hospedaje)</h3>
     ${Object.keys(data.porHabitacion).length===0?'<div class="empty" style="padding:30px 0">Sin datos de ocupación</div>':`
@@ -7164,58 +7358,38 @@ window.registrarAcceso=(session)=>{
 // ============================================================
 function pgLimpiezaSimple(){
   const s=sede();
-  // Todas las habitaciones excepto ocupadas y en mantenimiento
-  const limpStatus=['limpieza','libre','limpia_llave','reservada'];
-  const todasHabs=s.habitaciones.filter(h=>limpStatus.includes(h.estado));
+  const porLimpiar=s.habitaciones.filter(h=>h.estado==='limpieza');
   const llavePend=s.habitaciones.filter(h=>h.estado==='limpia_llave');
-  // Historial de limpiezas de esta sesión (turno actual)
-  const apertura=s.caja.apertura?new Date(s.caja.apertura):null;
-  const misLimpiezas=(s.limpiezas||[]).filter(l=>l.personal===UI.session?.nombre&&apertura&&new Date(l.fecha)>=apertura);
-
-  // Colores y etiquetas por estado
-  const colCard={limpieza:'#fffbeb',libre:'#f0fdf4',limpia_llave:'#ecfeff',reservada:'#eff6ff'};
-  const borCard={limpieza:'#fbbf24',libre:'#86efac',limpia_llave:'#67e8f9',reservada:'#93c5fd'};
-  const lblCard={limpieza:'🧹 Por limpiar',libre:'✅ Libre',limpia_llave:'🔑 Lista',reservada:'📅 Reservada'};
-  const txtCard={limpieza:'#92400e',libre:'#15803d',limpia_llave:'#0e7490',reservada:'#1e40af'};
-
   return `
-  <div style="max-width:700px;margin:0 auto;padding:8px">
-    <div style="text-align:center;margin-bottom:16px">
-      <div style="font-size:22px;font-weight:900;color:var(--txt)">🧹 Hola, ${UI.session?.nombre?.split(' ')[0]||''}</div>
-      <div style="font-size:13px;color:var(--txt2);margin-top:3px">Selecciona la habitación que limpiaste</div>
+  <div style="max-width:680px;margin:0 auto;padding:8px">
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="font-size:24px;font-weight:900;color:var(--txt)">🧹 Hola, ${UI.session?.nombre?.split(' ')[0]||''}</div>
+      <div style="font-size:14px;color:var(--txt2);margin-top:4px">Toca la habitación que terminaste de limpiar</div>
     </div>
-
-    ${misLimpiezas.length>0?`
-    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#15803d">
-      <b>✓ Limpiezas en este turno:</b>
-      ${misLimpiezas.map(l=>`<span style="margin-left:6px;background:#dcfce7;padding:2px 8px;border-radius:20px">${l.hab_num} · ${new Date(l.fecha).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}</span>`).join('')}
-    </div>`:''}
-
-    ${todasHabs.length===0?`
-    <div style="text-align:center;padding:40px 20px;background:#f0fdf4;border:2px solid #86efac;border-radius:18px">
-      <div style="font-size:50px;margin-bottom:10px">✅</div>
-      <div style="font-size:18px;font-weight:900;color:#15803d">No hay habitaciones disponibles</div>
+    ${porLimpiar.length===0?`
+    <div style="text-align:center;padding:50px 20px;background:#f0fdf4;border:2px solid #86efac;border-radius:18px">
+      <div style="font-size:60px;margin-bottom:10px">✅</div>
+      <div style="font-size:20px;font-weight:900;color:#15803d">¡No hay habitaciones por limpiar!</div>
     </div>`:`
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px">
-      ${todasHabs.map(h=>`
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px">
+      ${porLimpiar.map(h=>`
       <button onclick="limpiezaSimpleMarcar('${h.num}')"
-        style="background:${colCard[h.estado]||'#f8fafc'};border:2.5px solid ${borCard[h.estado]||'#e2e8f0'};border-radius:16px;padding:22px 10px;cursor:pointer;text-align:center;transition:transform .1s;width:100%"
-        ontouchstart="this.style.transform='scale(.95)'" ontouchend="this.style.transform='none'">
-        <div style="font-size:36px;font-weight:900;color:${txtCard[h.estado]||'#1e293b'}">${h.num}</div>
-        <div style="font-size:11px;color:${txtCard[h.estado]||'#64748b'};font-weight:600;margin-top:4px">${h.tipo||''}</div>
-        <div style="margin-top:10px;background:${borCard[h.estado]||'#e2e8f0'};border-radius:8px;padding:7px;font-size:12px;font-weight:800;color:${txtCard[h.estado]||'#1e293b'}">${lblCard[h.estado]||h.estado}</div>
+        style="background:#fffbeb;border:3px solid #fbbf24;border-radius:18px;padding:26px 10px;cursor:pointer;text-align:center;transition:transform .1s"
+        ontouchstart="this.style.transform='scale(.96)'" ontouchend="this.style.transform='none'">
+        <div style="font-size:40px;font-weight:900;color:#92400e">${h.num}</div>
+        <div style="font-size:13px;color:#b45309;font-weight:700;margin-top:6px">${h.tipo||''}</div>
+        <div style="margin-top:10px;background:#d97706;color:#fff;border-radius:10px;padding:8px;font-size:14px;font-weight:900">✓ LIMPIÉ ESTA</div>
       </button>`).join('')}
     </div>`}
-
     ${llavePend.length>0?`
-    <div style="margin-top:18px;background:#ecfeff;border:1px solid #67e8f9;border-radius:12px;padding:10px 14px">
-      <div style="font-size:12px;font-weight:800;color:#0891b2;margin-bottom:8px">🔑 Pendientes de entregar llave en recepción:</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${llavePend.map(h=>`<span style="background:#fff;border:1.5px solid #67e8f9;border-radius:10px;padding:6px 14px;font-size:16px;font-weight:900;color:#0e7490">🔑 ${h.num}</span>`).join('')}
+    <div style="margin-top:24px">
+      <div style="font-size:13px;font-weight:800;color:#0891b2;margin-bottom:10px">🔑 Limpias — falta entregar la llave en recepción:</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        ${llavePend.map(h=>`<div style="background:#ecfeff;border:2px solid #67e8f9;border-radius:12px;padding:10px 18px;font-size:18px;font-weight:900;color:#0e7490">🔑 ${h.num}</div>`).join('')}
       </div>
+      <div style="font-size:12px;color:var(--txt3);margin-top:8px">Cuando bajes, entrega las llaves y recepción las marcará como disponibles.</div>
     </div>`:''}
-
-    <button onclick="clearSessionYSalir()" style="margin-top:24px;width:100%;padding:14px;border-radius:12px;border:2px solid var(--borde);background:#fff;font-size:14px;font-weight:800;color:var(--txt2);cursor:pointer">Cerrar sesión</button>
+    <button onclick="clearSessionYSalir()" style="margin-top:30px;width:100%;padding:16px;border-radius:14px;border:2px solid var(--borde);background:#fff;font-size:15px;font-weight:800;color:var(--txt2);cursor:pointer">Cerrar sesión</button>
   </div>`;
 }
 window.limpiezaSimpleMarcar=(num)=>{
@@ -8160,3 +8334,9 @@ setTimeout(_pintarBannerPendientes,1500);
 </script>
 </body>
 </html>
+
+
+
+
+
+
