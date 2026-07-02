@@ -9,21 +9,21 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="AVD Hotel">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#1e40af">
+<meta name="theme-color" content="#0ea5e9">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sistema Hotelero — En la Nube</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --azul:#2563eb; --azul-d:#1d4ed8;
+  --azul:#0ea5e9; --azul-d:#0284c7;
   --verde:#16a34a; --verde-bg:#f0fdf4; --verde-b:#86efac;
   --rojo:#dc2626; --rojo-bg:#fff5f5;
   --ambar:#d97706; --ambar-bg:#fffbeb;
   --morado:#7c3aed;
-  --tinta:#0f172a; --tinta2:#1e293b;
-  --txt:#1e293b; --txt2:#64748b; --txt3:#94a3b8;
-  --borde:#e2e8f0; --bg:#f1f5f9; --panel:#ffffff;
+  --tinta:#ffffff; --tinta2:#f0f9ff;
+  --txt:#0f172a; --txt2:#64748b; --txt3:#94a3b8;
+  --borde:#e2e8f0; --bg:#f8fafc; --panel:#ffffff;
   --r:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -39,7 +39,7 @@ input,select{font-family:inherit;color:var(--txt);background:#fff;}
 .sidebar{
   position:fixed;top:0;left:0;bottom:0;
   width:76px;
-  background:var(--tinta);
+  background:var(--tinta);border-right:1px solid var(--borde);box-shadow:2px 0 12px rgba(14,165,233,.06);
   display:flex;flex-direction:column;
   padding:16px 0 12px;
   gap:2px;
@@ -89,8 +89,8 @@ input,select{font-family:inherit;color:var(--txt);background:#fff;}
   overflow:hidden;flex-shrink:0;
   position:relative;
 }
-.navitem:hover{background:#1e293b;color:#cbd5e1;}
-.navitem.active{background:#1e40af;color:#fff;border-radius:0;}
+.navitem:hover{background:#e0f2fe;color:#0284c7;}
+.navitem.active{background:#0ea5e9;color:#fff;border-radius:0;}
 .navitem svg{flex-shrink:0;}
 .navitem-text{
   white-space:nowrap;overflow:hidden;
@@ -123,7 +123,7 @@ input,select{font-family:inherit;color:var(--txt);background:#fff;}
 }
 .caja-dot.closed{background:#f59e0b;animation:none;}
 @keyframes pulseDot{0%{box-shadow:0 0 0 0 rgba(34,197,94,.4)}70%{box-shadow:0 0 0 6px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
-.caja-label{font-size:11px;font-weight:700;color:#94a3b8;white-space:nowrap;opacity:0;transition:opacity .15s;}
+.caja-label{font-size:11px;font-weight:700;color:#64748b;white-space:nowrap;opacity:0;transition:opacity .15s;}
 .sidebar:hover .caja-label{opacity:1;}
 .caja-label span{color:#22c55e;display:block;font-size:12px;}
 
@@ -736,10 +736,14 @@ function sumarPorBolsillo(txs){
     const met=t.metodo||'Efectivo';
     if(met.includes('/')&&met.includes('S/')){
       // Formato combinado antiguo: parsear cada parte
-      met.split('/').forEach(parte=>{
-        const m=parte.match(/(\w+[\w\s()+]*?):\s*S\/(\d+(?:\.\d+)?)/);
-        if(m)r[bolsilloDe(m[1])]+=parseFloat(m[2])||0;
+      // Soporta "Efectivo: S/40 / Yape: S/10" y "Efectivo S/30 + Yape S/25"
+      const partes=met.split(/[\/+]/).map(x=>x.trim()).filter(x=>x&&x!=='S');
+      let matcheo=false;
+      partes.forEach(parte=>{
+        const m=parte.match(/([A-Za-zÁ-úñÑ ()]+?)[:\s]+S?\/?\s*(\d+(?:\.\d+)?)/);
+        if(m){r[bolsilloDe(m[1])]+=parseFloat(m[2])||0;matcheo=true;}
       });
+      if(!matcheo)r[bolsilloDe(met)]+=Number(t.monto||0);
     }else{
       r[bolsilloDe(met)]+=Number(t.monto)||0;
     }
@@ -1148,20 +1152,19 @@ function render(){window._ultimoRender=Date.now();
       ${(UI.session&&UI.session.rol==='limpieza'&&!UI.adminAuth?[['brush','limpiezaSimple','Mis Limpiezas',false]]:[
         ['dashboard','dashboard','Inicio',false],
         ['building','habitaciones','Habitaciones',false],
-        ['calendar','reservas','Reservas',false],
-        ['user','huespedes','Huéspedes',false],
         ['cart','tienda','Tienda',false],
-        ['stock','inventario','Inventario',false],
-        ['caja','cajas','Cajas',false],
-        ['finanzas','finanzas','Finanzas',false],
-        ['trending','analytics','Analytics',true],
-        ['inbox','solicitudes','Solicitudes',true],
-        ['wrench','mantenimiento','Mantenimiento',false],
         ['clock','historial','Historial',false],
+        ['wrench','mantenimiento','Mantenimiento',false],
+        ['stock','inventario','Inventario',false],
+        ['brush','limpieza','Limpieza',false],
+        ['caja','cajas','Caja',false],
+        ['inbox','solicitudes','Solicitudes',false],
+        ['finanzas','finanzas','Finanzas',true],
+        ['trending','analytics','Analytics',true],
         ['eye','dueno','Panel Dueño',true],
         ['config','config','Config',true],
       ]).filter(([,,,adminOnly])=>!adminOnly||UI.adminAuth)
-        .map(([ic,id,lb,adminOnly])=>{const pend=id==='solicitudes'?((s.solicitudes||[]).filter(x=>x.estado==='pendiente').length):0;return `<button class="navitem ${UI.pagina===id?'active':''}" onclick="nav('${id}')">${icon(ic,20)}<span class="navitem-text">${lb}${pend>0?`<span style="background:var(--rojo);color:#fff;padding:0 6px;border-radius:9px;font-size:10px;font-weight:700;margin-left:6px">${pend}</span>`:''}${adminOnly?'<span class="admin-badge">ADMIN</span>':''}</span></button>`;}).join('')}
+        .map(([ic,id,lb,adminOnly])=>{const pend=id==='solicitudes'?((s.solicitudes||[]).filter(x=>x.estado==='pendiente').length):0;const act=UI.pagina===id||(id==='habitaciones'&&['reservas','huespedes'].includes(UI.pagina));return `<button class="navitem ${act?'active':''}" onclick="nav('${id}')">${icon(ic,20)}<span class="navitem-text">${lb}${pend>0?`<span style="background:var(--rojo);color:#fff;padding:0 6px;border-radius:9px;font-size:10px;font-weight:700;margin-left:6px">${pend}</span>`:''}${adminOnly?'<span class="admin-badge">ADMIN</span>':''}</span></button>`;}).join('')}
       <!-- Pastilla caja al fondo -->
       <div class="sidebar-caja">
         <div class="caja-dot ${!s.caja.abierta?'closed':''}"></div>
@@ -1228,6 +1231,7 @@ function pagina(){
   if(UI.pagina==='analytics')return pgAnalytics();
   if(UI.pagina==='mantenimiento')return pgMantenimiento();
   if(UI.pagina==='solicitudes')return pgSolicitudes();
+  if(UI.pagina==='limpieza')return pgLimpieza();
   if(UI.pagina==='config')return pgConfig();
   if(UI.pagina==='limpiezaSimple')return pgLimpiezaSimple();
   if(UI.pagina==='historial')return pgHistorial();
@@ -1291,6 +1295,17 @@ function calcAlertas(){
   const s=sede();
   if(!s)return alertas;
   const ahora=new Date();
+
+  /* --- Solicitudes pendientes de aprobación (solo visible con detalle para admin) --- */
+  const solsPend=(s.solicitudes||[]).filter(x=>x.estado==='pendiente');
+  if(solsPend.length){
+    alertas.push({tipo:'solicitud',nivel:'medio',icono:'📥',
+      id:null, // nunca se oculta mientras haya pendientes
+      titulo:`${solsPend.length} solicitud${solsPend.length>1?'es':''} pendiente${solsPend.length>1?'s':''} de aprobación`,
+      desc:solsPend.slice(0,3).map(x=>x.producto_nombre||x.tipo_sol||'').join(' · ')+(solsPend.length>3?` y ${solsPend.length-3} más`:''),
+      pagina:'solicitudes',
+      accion:{label:'Ir a aprobar →',fn:"nav('solicitudes')"}});
+  }
 
   /* --- Sorteo semanal premium: correr y avisar ganadores pendientes --- */
   try{
@@ -1615,6 +1630,21 @@ function ganadoresSemana(){
   const semKey=_semanaActualKey();
   const sorteos=_getSorteos();
   return Object.entries(sorteos[semKey]||{}).filter(([d,r])=>r.gana&&!r.usado).map(([d,r])=>({doc:d,...r}));
+}
+
+// ============================================================
+// CÁLCULO CENTRAL DEL EFECTIVO EN CAJA (turno actual)
+// Filtra SIEMPRE las anuladas y solo cuenta desde la apertura.
+// ============================================================
+function calcEfectivoCaja(){
+  const s=sede();
+  if(!s.caja.abierta||!s.caja.apertura)return s.caja.montoInicial||0;
+  const apertura=new Date(s.caja.apertura);
+  const txTurno=s.transacciones.filter(t=>!t.anulada&&new Date(t.fecha)>=apertura);
+  const bols=sumarPorBolsillo(txTurno.filter(t=>t.tipo!=='gasto'&&t.tipo!=='ingreso_caja'&&t.metodo!=='Cortesía'&&t.metodo!=='Consumo interno'));
+  const totIngCaja=txTurno.filter(t=>t.tipo==='ingreso_caja').reduce((a,t)=>a+Number(t.monto||0),0);
+  const totGastos=txTurno.filter(t=>t.tipo==='gasto').reduce((a,t)=>a+Number(t.monto||0),0);
+  return (s.caja.montoInicial||0)+bols.efectivo+totIngCaja-totGastos;
 }
 
 function calcStats(){
@@ -2353,7 +2383,7 @@ function pgDashboard(){
           const borderColor=tieneReserva?'#2563eb':EC[h.estado];
           const bgColor=tieneReserva?'#eff6ff':(EB[h.estado]||'#fff');
           return `<div class="room" style="border-left-color:${borderColor};background:${bgColor}" onclick="clickHab('${h.num}')">
-            <div class="room-top"><span class="room-num">${h.num}</span><span class="room-est" style="background:${borderColor}22;color:${borderColor}">${tieneReserva?'📅 Reservada':EL[h.estado]}</span></div>
+            <div class="room-top"><span class="room-num">${h.num}</span><span class="room-est" style="background:${borderColor}22;color:${borderColor}">${tieneReserva?'📅 Reservada':(EL[h.estado]||'⚠️ Revisar')}</span></div>
             <div class="room-tipo">${h.tipo}${h.nombre?` · <span style="color:var(--azul);font-weight:600">${h.nombre}</span>`:''}</div>${centro}
             <div class="room-precio" style="display:flex;justify-content:space-between;align-items:center">
               <span>S/ ${h.pn}/noche</span>
@@ -2398,8 +2428,7 @@ function panelCumpleanios(){
 
 function pgCajas(){
   const s=sede(),c=s.caja,st=calcStats();
-  const efectivo=s.transacciones.filter(t=>t.metodo==='Efectivo'&&t.tipo!=='gasto').reduce((a,t)=>a+t.monto,0);
-  const esperado=c.montoInicial+efectivo-st.gastos;
+  const esperado=calcEfectivoCaja();
   return `
   ${panelCumpleanios()}
   <div class="sec-head"><div><div class="sec-title">Control de Cajas</div><div class="sec-sub">Gestiona turnos y cierres de caja</div></div></div>
@@ -2454,16 +2483,24 @@ function pgCajas(){
       <h3>Resumen de ventas</h3>
       <div class="row"><span style="color:var(--txt2)">Total ingresos</span><span style="font-size:20px;font-weight:800;color:var(--azul)">${fmtS(st.hospedaje+st.tienda)}</span></div>
       <hr style="border:none;border-top:1px solid var(--borde);margin:10px 0">
-      <div style="font-size:12px;color:var(--txt2);font-weight:600;margin-bottom:6px">Por método de pago</div>
-      ${METODOS.map(m=>{const t=s.transacciones.filter(x=>x.metodo===m&&x.tipo!=='gasto').reduce((a,x)=>a+x.monto,0);return t?`<div class="row"><span>${m}</span><span style="font-weight:600">${fmtS(t)}</span></div>`:'';}).join('')||'<div class="empty" style="padding:20px 0">Sin ventas</div>'}
+      <div style="font-size:12px;color:var(--txt2);font-weight:600;margin-bottom:6px">Por método de pago (turno actual)</div>
+      ${(()=>{const ap=(c.abierta&&c.apertura)?new Date(c.apertura):null;const txT=ap?s.transacciones.filter(t=>!t.anulada&&new Date(t.fecha)>=ap):[];return METODOS.map(m=>{const t=txT.filter(x=>x.metodo===m&&x.tipo!=='gasto').reduce((a,x)=>a+Number(x.monto||0),0);return t?`<div class="row"><span>${m}</span><span style="font-weight:600">${fmtS(t)}</span></div>`:'';}).join('')||'<div class="empty" style="padding:20px 0">Sin ventas en este turno</div>';})()}
     </div>
     <div class="panel">
       <h3>Cuadre de Efectivo</h3>
+      ${(()=>{const ap=(c.abierta&&c.apertura)?new Date(c.apertura):null;const txT=ap?s.transacciones.filter(t=>!t.anulada&&new Date(t.fecha)>=ap):[];
+        const bolsT=sumarPorBolsillo(txT.filter(t=>t.tipo!=='gasto'&&t.tipo!=='ingreso_caja'&&t.metodo!=='Cortesía'&&t.metodo!=='Consumo interno'));
+        const ingCajaT=txT.filter(t=>t.tipo==='ingreso_caja').reduce((a,t)=>a+Number(t.monto||0),0);
+        return `
       <div class="cuadre-row" style="background:var(--verde-bg);color:#15803d"><span>Monto inicial</span><b>${fmtS(c.montoInicial)}</b></div>
-      <div class="cuadre-row" style="background:#eff6ff;color:#1d4ed8"><span>(+) Ingresos efectivo</span><b>${fmtS(efectivo)}</b></div>
-      ${st.ingresosCaja>0?`<div class="cuadre-row" style="background:#f0fdf4;color:#15803d"><span>(+) Reposición / Ingreso de caja</span><b>${fmtS(st.ingresosCaja)}</b></div>`:''}
-      ${st.gastos>0?`<div class="cuadre-row" style="background:var(--rojo-bg);color:#dc2626"><span>(-) Gastos del turno</span><b>${fmtS(st.gastos)}</b></div>`:''}
+      <div class="cuadre-row" style="background:#eff6ff;color:#1d4ed8"><span>(+) Ingresos efectivo (turno)</span><b>${fmtS(bolsT.efectivo)}</b></div>
+      ${ingCajaT>0?`<div class="cuadre-row" style="background:#f0fdf4;color:#15803d"><span>(+) Reposición / Ingreso de caja</span><b>${fmtS(ingCajaT)}</b></div>`:''}
+      ${st.gastos>0?`<div class="cuadre-row" style="background:var(--rojo-bg);color:#dc2626"><span>(-) Gastos del turno</span><b>${fmtS(st.gastos)}</b></div>`:''}`;})()}
       <div class="cuadre-row" style="background:var(--verde);color:#fff"><span style="font-weight:700">ESPERADO EN EFECTIVO</span><b style="font-size:16px">${fmtS(esperado)}</b></div>
+      ${c.abierta?`<div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-out" style="flex:1;color:#15803d;border-color:#86efac" onclick="UI.ajusteCajaModo='agregar';abrirModal('nuevoIngreso')">➕ Agregar dinero</button>
+        <button class="btn btn-out" style="flex:1;color:#991b1b;border-color:#fca5a5" onclick="UI.ajusteCajaModo='retirar';abrirModal('nuevoIngreso')">➖ Retirar dinero</button>
+      </div>`:''}
     </div>
     <div class="panel" style="grid-column:1/-1">
       <h3>Transacciones <span class="chip">${s.transacciones.length}</span></h3>
@@ -2583,7 +2620,7 @@ function pgTienda(){
     if(busq&&!p.nombre.toLowerCase().includes(busq))return false;
     return true;
   });
-  return `
+  return `<div style="margin-bottom:12px"><button class="btn btn-out" style="font-size:12px" onclick="UI.tdDashOpen=!UI.tdDashOpen;render()">${UI.tdDashOpen?'▲ Ocultar dashboard':'📊 Ver dashboard'}</button></div>${UI.tdDashOpen?dashTienda():''}
   <div class="sec-head"><div><div class="sec-title">Tienda (POS)</div><div class="sec-sub">Vende productos al huésped</div></div></div>
   <div class="pos-layout" style="display:grid;grid-template-columns:1fr 300px;gap:16px">
     <div class="panel" style="padding:14px">
@@ -2779,7 +2816,7 @@ function pgInventario(){
   const categorias=s.categorias||DEFAULT_CATEGORIAS;
   const tab=UI.invTab||'productos';
   const pendientes=(s.solicitudes||[]).filter(x=>x.estado==='pendiente');
-  return `
+  return `<div style="margin-bottom:12px"><button class="btn btn-out" style="font-size:12px" onclick="UI.invDashOpen=!UI.invDashOpen;render()">${UI.invDashOpen?'▲ Ocultar dashboard':'📊 Ver dashboard'}</button></div>${UI.invDashOpen?dashInventario():''}
   <div class="sec-head"><div><div class="sec-title">Inventario</div><div class="sec-sub">Gestiona productos, categorías y movimientos</div></div>
     <div class="tabs">
       <button class="tab ${tab==='productos'?'active':''}" onclick="setInvTab('productos')">📦 Productos</button>
@@ -2902,6 +2939,11 @@ function pgInventario(){
     </div>`}`;
 }
 
+function subNavHab(actual){
+  return `<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+    ${[['habitaciones','🏨 Habitaciones'],['reservas','📅 Reservas'],['huespedes','👤 Huéspedes']].map(([k,lb])=>`<button onclick="nav('${k}')" style="padding:8px 16px;border-radius:999px;border:1.5px solid ${actual===k?'var(--azul)':'var(--borde)'};background:${actual===k?'var(--azul)':'var(--panel)'};color:${actual===k?'#fff':'var(--txt2)'};font-size:13px;font-weight:700;cursor:pointer">${lb}</button>`).join('')}
+  </div>`;
+}
 function pgHabitaciones(){
   const s=sede();
   const fH=UI.habFiltros||(UI.habFiltros={busq:'',tipo:'',piso:'',estado:''});
@@ -2911,7 +2953,7 @@ function pgHabitaciones(){
     &&(!fH.tipo||h.tipo===fH.tipo)
     &&(!fH.piso||String(h.piso)===fH.piso)
     &&(!fH.estado||h.estado===fH.estado));
-  return `
+  return `${subNavHab('habitaciones')}
 
   <!-- Banner personal de limpieza activo -->
   ${s.caja.abierta?`<div style="background:#fffbeb;border:1px solid #fde047;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
@@ -2972,7 +3014,7 @@ function pgHuespedes(){
     return !h.blacklisted&&!h.premium;
   });
   const huespedes=base.filter(h=>!busq||(h.nombre||'').toLowerCase().includes(busq)||(h.num_doc||'').toLowerCase().includes(busq));
-  return `
+  return `${subNavHab('huespedes')}
   <div class="sec-head">
     <div><div class="sec-title">Huéspedes — ${s.nombre}</div><div class="sec-sub">Historial de clientes registrados</div></div>
   </div>
@@ -3039,7 +3081,7 @@ function pgReservas(){
     lista=lista.filter(r=>(r.huesped_nombre||'').toLowerCase().includes(b)||(r.huesped_num_doc||'').toLowerCase().includes(b)||(r.habitaciones||[]).join(',').toLowerCase().includes(b)||(r.codigo_corto||'').toLowerCase().includes(b));
   }
   const labelFFecha={todas:'Todas',hoy:'Hoy',ayer:'Ayer',semana:'Esta semana',mes:'Este mes',anio:'Este año'}[UI.resFFecha]||'Todas';
-  return `
+  return `${subNavHab('reservas')}
   <div class="sec-head">
     <div><div class="sec-title">Reservas — ${s.nombre}</div><div class="sec-sub">Gestiona las reservas de tu hotel</div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -3273,7 +3315,7 @@ function pgMantenimiento(){
   const EST_LABEL={pendiente:'Pendiente',en_proceso:'En proceso',resuelto:'Resuelto'};
   const renderTicket=(t)=>{
     const hab=s.habitaciones.find(h=>h.num===t.hab_num);
-    return `<div style="border:1px solid var(--borde);border-left:4px solid ${PRIO_COLOR[t.prioridad]||'#64748b'};background:${PRIO_BG[t.prioridad]||'#fff'};border-radius:10px;padding:14px;margin-bottom:10px">
+    return `<div style="margin-bottom:12px"><button class="btn btn-out" style="font-size:12px" onclick="UI.mtDashOpen=!UI.mtDashOpen;render()">${UI.mtDashOpen?'▲ Ocultar dashboard':'📊 Ver dashboard'}</button></div>${UI.mtDashOpen?dashMantenimiento():''}<div style="border:1px solid var(--borde);border-left:4px solid ${PRIO_COLOR[t.prioridad]||'#64748b'};background:${PRIO_BG[t.prioridad]||'#fff'};border-radius:10px;padding:14px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
         <div style="flex:1;min-width:200px">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -3341,7 +3383,7 @@ function pgSolicitudes(){
   const sols=s.solicitudes||[];
   const fEstado=UI.solFEstado||'pendiente';
   const fTipo=UI.solFTipo||'';
-  const TIPOS={stock:'📦 Stock',nuevo_producto:'🆕 Nuevo producto',editar_producto:'✏️ Editar producto'};
+  const TIPOS={stock:'📦 Stock',nuevo_producto:'🆕 Nuevo producto',editar_producto:'✏️ Editar producto',ajuste_caja:'💰 Ajuste de caja'};
   const filtradas=sols.filter(x=>{
     const tipoSol=x.tipo_sol||'stock';
     if(fEstado&&x.estado!==fEstado)return false;
@@ -3367,6 +3409,10 @@ function pgSolicitudes(){
       if(a.compra!==b.compra)cambios.push(`Compra: S/${a.compra} → S/${b.compra}`);
       if(a.cat!==b.cat)cambios.push(`Categoría: ${a.cat} → ${b.cat}`);
       detalle=`<div style="font-size:13px"><b>${sol.producto_nombre}</b></div><div style="font-size:12px;color:var(--txt2);margin-top:3px">${cambios.length?cambios.join(' · '):'Sin cambios visibles'}</div>`;
+    }else if(tipoSol==='ajuste_caja'){
+      let d={};try{d=JSON.parse(sol.datos);}catch(e){}
+      const esAgregar=d.modo==='agregar';
+      detalle=`<div style="font-size:13px"><b style="color:${esAgregar?'#15803d':'#991b1b'}">${esAgregar?'➕ Agregar':'➖ Retirar'} ${fmtS(d.monto||0)}</b> · ${d.motivo||''}</div>${d.desc?`<div style="font-size:12px;color:var(--txt2);margin-top:2px">${d.desc}</div>`:''}`;
     }
     const colEstado={pendiente:'#d97706',aprobado:'#16a34a',rechazado:'#dc2626'};
     const bgEstado={pendiente:'#fffbeb',aprobado:'#f0fdf4',rechazado:'#fef2f2'};
@@ -3383,7 +3429,7 @@ function pgSolicitudes(){
           ${sol.estado!=='pendiente'?`<div style="font-size:11px;color:var(--txt3);margin-top:4px">Resuelto: ${fmtFechaHora(sol.fecha_decision)}</div>`:''}
         </div>
         ${sol.estado==='pendiente'?`<div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${(tipoSol==='nuevo_producto'||tipoSol==='editar_producto')?`<button class="btn-out" style="padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;color:#7c3aed;border-color:#c4b5fd;background:#f3e8ff" onclick="editarSolicitud('${sol.id}')">✏️ Editar</button>`:''}
+          <button class="btn-out" style="padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;color:#7c3aed;border-color:#c4b5fd;background:#f3e8ff" onclick="editarSolicitud('${sol.id}')">✏️ Editar</button>
           <button class="btn-out" style="padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;color:var(--verde);border-color:#86efac;background:#dcfce7" onclick="aprobarSolicitud('${sol.id}')">✓ Aprobar</button>
           <button class="btn-out" style="padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;color:var(--rojo);border-color:#fca5a5;background:#fee2e2" onclick="rechazarSolicitud('${sol.id}')">✕ Rechazar</button>
         </div>`:`<span style="font-size:12px;font-weight:700;color:${colEstado[sol.estado]}">${sol.estado==='aprobado'?'✓ Aprobado':'✕ Rechazado'}</span>`}
@@ -3402,7 +3448,7 @@ function pgSolicitudes(){
 
   <!-- Filtro por tipo -->
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-    ${[['','Todos los tipos'],['stock','📦 Stock'],['nuevo_producto','🆕 Nuevos'],['editar_producto','✏️ Ediciones']].map(([k,lb])=>`
+    ${[['','Todos los tipos'],['stock','📦 Stock'],['nuevo_producto','🆕 Nuevos'],['editar_producto','✏️ Ediciones'],['ajuste_caja','💰 Ajustes de caja']].map(([k,lb])=>`
       <button onclick="UI.solFTipo='${k}';render()" style="padding:6px 12px;border-radius:8px;border:1px solid ${fTipo===k?'#7c3aed':'var(--borde)'};background:${fTipo===k?'#f3e8ff':'#fff'};color:${fTipo===k?'#6b21a8':'var(--txt2)'};font-size:12px;font-weight:600;cursor:pointer">${lb}</button>`).join('')}
   </div>
 
@@ -3525,6 +3571,15 @@ function pgConfig(){
         <span id="umbralMsg" style="font-size:12px;color:var(--verde);display:none">✓ Guardado</span>
       </div>
       <div style="font-size:12px;color:var(--txt2);margin-top:6px">Productos con stock ≤ este valor aparecen en las alertas. Por defecto: 3.</div>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--borde);margin:14px 0">
+    <div class="field">
+      <label>🧹 Limpieza profunda cada (usos)</label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input class="inp" type="number" min="5" max="100" value="${getUmbralLP()}" id="cfgUmbralLP" style="max-width:100px;text-align:center;font-weight:700;font-size:16px">
+        <button class="btn btn-azul" onclick="const v=parseInt(document.getElementById('cfgUmbralLP').value)||20;localStorage.setItem('avd_umbral_lp',v);showToast('✓ Guardado: limpieza profunda cada '+v+' usos');render()">Guardar</button>
+      </div>
+      <div style="font-size:12px;color:var(--txt2);margin-top:6px">Cada habitación acumula usos con cada check-in. Al llegar a este número, aparece en la página Limpieza como pendiente de limpieza profunda. Por defecto: 20.</div>
     </div>
     <hr style="border:none;border-top:1px solid var(--borde);margin:14px 0">
     <div style="font-size:13px;color:var(--txt2);margin-bottom:8px">Las alertas también se activan automáticamente cuando:</div>
@@ -4110,25 +4165,34 @@ function modalHTML(){
     <div id="spErr" style="color:var(--rojo);font-size:12px;min-height:16px;margin-bottom:8px"></div>
     <div style="display:flex;gap:10px"><button class="btn btn-out" style="flex:1" onclick="cerrarModal()">Cancelar</button><button class="btn btn-azul" style="flex:2" onclick="doSolicitarCambioPass()">Enviar solicitud</button></div>`,460);
   }
-  if(m==='nuevoIngreso')return modal('💵 Reponer / Ingresar Efectivo',`
-    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:#15803d">
-      <b>¿Para qué sirve esto?</b><br>
-      Cuando necesitas meter dinero en efectivo a la caja (para tener cambio, reponer fondo, préstamo temporal, etc.).<br>
-      Este ingreso <b>no cuenta como venta</b> pero sí suma al efectivo esperado en el cuadre.
+  if(m==='nuevoIngreso'){const modo=UI.ajusteCajaModo||'agregar';const esAgregar=modo==='agregar';
+    return modal(esAgregar?'💵 Agregar dinero a caja':'💸 Retirar dinero de caja',`
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button onclick="UI.ajusteCajaModo='agregar';render()" style="flex:1;padding:10px;border-radius:10px;border:2px solid ${esAgregar?'#16a34a':'var(--borde)'};background:${esAgregar?'#f0fdf4':'#fff'};color:${esAgregar?'#15803d':'var(--txt2)'};font-weight:800;cursor:pointer">➕ Agregar</button>
+      <button onclick="UI.ajusteCajaModo='retirar';render()" style="flex:1;padding:10px;border-radius:10px;border:2px solid ${!esAgregar?'#dc2626':'var(--borde)'};background:${!esAgregar?'#fef2f2':'#fff'};color:${!esAgregar?'#991b1b':'var(--txt2)'};font-weight:800;cursor:pointer">➖ Retirar</button>
+    </div>
+    <div style="background:${esAgregar?'#f0fdf4':'#fef2f2'};border:1px solid ${esAgregar?'#86efac':'#fca5a5'};border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:${esAgregar?'#15803d':'#991b1b'}">
+      ${esAgregar?'<b>Agregar dinero:</b> para meter efectivo a la caja (cambio, reposición de fondo, préstamo). No cuenta como venta pero suma al efectivo esperado.':'<b>Retirar dinero:</b> para sacar efectivo de la caja (depósito al banco, retiro de gerencia, pago externo). Se descuenta del efectivo esperado.'}
+      ${!UI.adminAuth?'<br><br>📝 <b>Tu solicitud irá al administrador para aprobación.</b>':''}
     </div>
     <div class="field"><label>Motivo *</label>
       <select class="inp" id="ingMotivo">
+        ${esAgregar?`
         <option value="Reposición de fondo">Reposición de fondo</option>
         <option value="Cambio de billetes">Cambio de billetes</option>
         <option value="Préstamo temporal">Préstamo temporal</option>
-        <option value="Ajuste de caja">Ajuste de caja</option>
+        <option value="Ajuste de caja">Ajuste de caja</option>`:`
+        <option value="Depósito al banco">Depósito al banco</option>
+        <option value="Retiro de gerencia">Retiro de gerencia</option>
+        <option value="Pago a proveedor">Pago a proveedor</option>
+        <option value="Ajuste de caja">Ajuste de caja</option>`}
         <option value="Otro">Otro</option>
       </select>
     </div>
-    <div class="field"><label>Descripción adicional (opcional)</label><input class="inp" id="ingDesc" placeholder="Ej: Se recibió S/100 de gerencia para cambio"></div>
-    <div class="field"><label>Monto *</label><input class="inp" id="ingMonto" type="number" placeholder="S/ 0.00" style="font-size:22px;font-weight:700;text-align:center;color:#15803d"></div>
+    <div class="field"><label>Descripción adicional (opcional)</label><input class="inp" id="ingDesc" placeholder="${esAgregar?'Ej: Se recibió S/100 de gerencia para cambio':'Ej: Depósito BCP cuenta corriente'}"></div>
+    <div class="field"><label>Monto *</label><input class="inp" id="ingMonto" type="number" placeholder="S/ 0.00" style="font-size:22px;font-weight:700;text-align:center;color:${esAgregar?'#15803d':'#991b1b'}"></div>
     <div class="field"><label>Quien autoriza</label><input class="inp" id="ingAutoriza" placeholder="Nombre del administrador o gerente que autoriza" value="${UI.session?.nombre||''}"></div>
-    <div style="display:flex;gap:10px"><button class="btn btn-out" style="flex:1" onclick="cerrarModal()">Cancelar</button><button class="btn btn-verde" style="flex:2" onclick="doNuevoIngreso()">💵 Registrar Ingreso</button></div>`,480);
+    <div style="display:flex;gap:10px"><button class="btn btn-out" style="flex:1" onclick="cerrarModal()">Cancelar</button><button class="btn ${esAgregar?'btn-verde':'btn-rojo'}" style="flex:2;${!esAgregar?'padding:11px;border-radius:9px':''}" onclick="doNuevoIngreso()">${UI.adminAuth?(esAgregar?'💵 Registrar Ingreso':'💸 Registrar Retiro'):'📝 Enviar solicitud'}</button></div>`,500);}
   if(m==='nuevoGastoOp'){
     return modal('🧾 Registrar Gasto del Negocio',`
     <div class="g2">
@@ -4716,22 +4780,31 @@ function modalHTML(){
       return modal('🔔 Alertas',`<div class="empty" style="padding:40px 0"><div style="font-size:38px;margin-bottom:10px">✅</div><div style="font-weight:700">Sin alertas activas</div><div style="font-size:13px;margin-top:6px;color:var(--txt2)">Todo marcha bien por el momento.</div></div>`,420);
     }
     const grupos=[
-      {tipo:'habitacion',label:'🏨 Habitaciones vencidas',alertas:alertas.filter(a=>a.tipo==='habitacion')},
-      {tipo:'reserva',   label:'📅 Reservas sin check-in',alertas:alertas.filter(a=>a.tipo==='reserva')},
-      {tipo:'stock',     label:'📦 Stock bajo',            alertas:alertas.filter(a=>a.tipo==='stock')},
+      {tipo:'solicitud', label:'📥 Solicitudes por aprobar', alertas:alertas.filter(a=>a.tipo==='solicitud')},
+      {tipo:'mantenimiento',label:'🔧 Mantenimiento',        alertas:alertas.filter(a=>a.tipo==='mantenimiento')},
+      {tipo:'habitacion',label:'🏨 Habitaciones',            alertas:alertas.filter(a=>a.tipo==='habitacion')},
+      {tipo:'reserva',   label:'📅 Reservas sin check-in',   alertas:alertas.filter(a=>a.tipo==='reserva')},
+      {tipo:'stock',     label:'📦 Stock bajo',              alertas:alertas.filter(a=>a.tipo==='stock')},
+      {tipo:'cortesia',  label:'🎁 Cortesías / Sorteos',     alertas:alertas.filter(a=>a.tipo==='cortesia')},
+      {tipo:'otros',     label:'🔔 Otras alertas',           alertas:alertas.filter(a=>!['solicitud','mantenimiento','habitacion','reserva','stock','cortesia'].includes(a.tipo))},
     ].filter(g=>g.alertas.length>0);
     return modal(`<span>🔔 Alertas activas · <span style="color:${alertas.some(a=>a.nivel==='critico')?'#dc2626':'#d97706'}">${alertas.length} alerta${alertas.length>1?'s':''}</span></span>`,`
     ${grupos.map(g=>`
       <div style="margin-bottom:16px">
         <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${g.label}</div>
-        ${g.alertas.map(a=>`
+        ${g.alertas.map(a=>{
+          // Botón seguro: usa a.accion si existe; si no, navega a a.pagina; si no hay nada, sin botón
+          const btn=a.accion&&a.accion.fn
+            ?`<button class="btn-out" style="padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;white-space:nowrap;color:${a.nivel==='critico'?'#991b1b':'#92400e'};border-color:${a.nivel==='critico'?'#fca5a5':'#fde047'};background:#fff" onclick="cerrarModal();${a.accion.fn}">${a.accion.label}</button>`
+            :(a.pagina?`<button class="btn-out" style="padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;white-space:nowrap;color:${a.nivel==='critico'?'#991b1b':'#92400e'};border-color:${a.nivel==='critico'?'#fca5a5':'#fde047'};background:#fff" onclick="cerrarModal();nav('${a.pagina}')">Ver →</button>`:'');
+          return `
           <div style="background:${a.nivel==='critico'?'#fff5f5':'#fffbeb'};border:1px solid ${a.nivel==='critico'?'#fca5a5':'#fde047'};border-left:4px solid ${a.nivel==='critico'?'#dc2626':'#d97706'};border-radius:9px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-            <div>
+            <div style="flex:1;min-width:0">
               <div style="font-weight:700;font-size:13px;color:${a.nivel==='critico'?'#991b1b':'#92400e'}">${a.icono} ${a.titulo}</div>
               <div style="font-size:12px;color:${a.nivel==='critico'?'#991b1b':'#92400e'};opacity:.8;margin-top:3px">${a.desc}</div>
             </div>
-            <button class="btn-out" style="padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;white-space:nowrap;color:${a.nivel==='critico'?'#991b1b':'#92400e'};border-color:${a.nivel==='critico'?'#fca5a5':'#fde047'};background:#fff" onclick="cerrarModal();${a.accion.fn}">${a.accion.label}</button>
-          </div>`).join('')}
+            ${btn}
+          </div>`;}).join('')}
       </div>`).join('')}
     <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--borde);flex-wrap:wrap;gap:8px">
       <div style="font-size:12px;color:var(--txt2)">Umbral stock bajo: <b>${getUmbralStock()} unidades</b> · <span style="cursor:pointer;color:var(--azul);text-decoration:underline" onclick="cerrarModal();nav('config')">Cambiar en Config</span></div>
@@ -5020,9 +5093,7 @@ window.actualizarCuadre=()=>{
   const alertEl=document.getElementById('cuadreAlert');
   if(!contadoEl||!alertEl)return;
   const contado=parseFloat(contadoEl.value)||0;
-  const st=calcStats();
-  const ef=s.transacciones.filter(t=>t.metodo==='Efectivo'&&t.tipo!=='gasto').reduce((a,t)=>a+t.monto,0);
-  const esperado=s.caja.montoInicial+ef-st.gastos;
+  const esperado=calcEfectivoCaja();
   const dif=contado-esperado;
   if(contadoEl.value===''){alertEl.innerHTML='';return;}
   if(Math.abs(dif)<0.5){
@@ -5626,6 +5697,21 @@ window.aprobarSolicitud=async(id)=>{
   const s=sede();const sol=s.solicitudes.find(x=>x.id===id);if(!sol||sol.estado!=='pendiente')return;
   const tipoSol=sol.tipo_sol||'stock';
 
+  if(tipoSol==='ajuste_caja'){
+    let d={};try{d=JSON.parse(sol.datos);}catch(e){alert('Datos corruptos');return;}
+    const esAgregar=d.modo==='agregar';
+    const tx=esAgregar
+      ?{id:'OP-'+Date.now(),tipo:'ingreso_caja',desc:d.motivo+(d.desc?' — '+d.desc:'')+' (sol. de '+sol.solicitante+')',monto:d.monto,metodo:'Efectivo',fecha:new Date().toISOString(),responsable:s.caja.responsable||''}
+      :{id:'OP-'+Date.now(),tipo:'gasto',desc:'[Retiro de caja] '+d.motivo+(d.desc?' — '+d.desc:'')+' (sol. de '+sol.solicitante+')',monto:d.monto,metodo:'Efectivo',fecha:new Date().toISOString(),responsable:s.caja.responsable||''};
+    s.transacciones.unshift(tx);
+    sol.estado='aprobado';sol.aprobado_por='Admin';sol.fecha_decision=new Date().toISOString();
+    render();
+    await dbInsertTx(s.id,tx);
+    await dbUpdateSolicitud(s.id,id,{estado:'aprobado',aprobado_por:'Admin',fecha_decision:sol.fecha_decision});
+    showToast(`✓ ${esAgregar?'Ingreso':'Retiro'} de caja aprobado · ${fmtS(d.monto)}`);
+    return;
+  }
+
   if(tipoSol==='nuevo_producto'){
     let prod;try{prod=JSON.parse(sol.datos);}catch(e){alert('Datos de la solicitud corruptos');return;}
     prod.id='p'+Date.now(); // id nuevo para evitar colisiones
@@ -5677,11 +5763,44 @@ window.editarSolicitud=(id)=>{
   if(!UI.adminAuth){alert('Necesitas acceso de administrador');return;}
   const s=sede();const sol=s.solicitudes.find(x=>x.id===id);if(!sol||sol.estado!=='pendiente')return;
   const tipoSol=sol.tipo_sol||'stock';
-  let d={};try{d=JSON.parse(sol.datos);}catch(e){}
+  let d={};try{d=JSON.parse(sol.datos||'{}');}catch(e){}
   const prod=tipoSol==='nuevo_producto'?d:(d.despues||{});
   const old=document.getElementById('_editSolOv');if(old)old.remove();
   const div=document.createElement('div');div.id='_editSolOv';
   div.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.8);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+
+  if(tipoSol==='stock'){
+    // Editar la cantidad de stock solicitada
+    div.innerHTML=`
+    <div style="background:#fff;border-radius:18px;padding:26px;width:100%;max-width:380px">
+      <div style="font-size:17px;font-weight:900;margin-bottom:4px">✏️ Corregir cantidad</div>
+      <div style="font-size:12px;color:var(--txt2);margin-bottom:16px">${sol.solicitante||'Recepción'} solicitó <b>+${sol.cantidad}</b> unidades de <b>${sol.producto_nombre}</b>. Corrige la cantidad real y aprueba.</div>
+      <div class="field"><label>Cantidad real a agregar</label><input class="inp" id="esCant" type="number" min="1" value="${sol.cantidad}" style="font-size:18px;font-weight:800;text-align:center"></div>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="btn btn-out" style="flex:1" onclick="document.getElementById('_editSolOv').remove()">Cancelar</button>
+        <button class="btn btn-verde" style="flex:2" onclick="guardarYAprobarSolicitud('${id}')">✓ Guardar y aprobar</button>
+      </div>
+    </div>`;
+    document.body.appendChild(div);
+    return;
+  }
+
+  if(tipoSol==='ajuste_caja'){
+    const esAgregar=d.modo==='agregar';
+    div.innerHTML=`
+    <div style="background:#fff;border-radius:18px;padding:26px;width:100%;max-width:380px">
+      <div style="font-size:17px;font-weight:900;margin-bottom:4px">✏️ Corregir ajuste de caja</div>
+      <div style="font-size:12px;color:var(--txt2);margin-bottom:16px">${sol.solicitante||'Recepción'} solicitó <b style="color:${esAgregar?'#15803d':'#991b1b'}">${esAgregar?'agregar':'retirar'} ${fmtS(d.monto||0)}</b> — ${d.motivo||''}. Corrige el monto real y aprueba.</div>
+      <div class="field"><label>Monto real</label><input class="inp" id="esMonto" type="number" min="0.5" step="0.5" value="${d.monto||0}" style="font-size:18px;font-weight:800;text-align:center;color:${esAgregar?'#15803d':'#991b1b'}"></div>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="btn btn-out" style="flex:1" onclick="document.getElementById('_editSolOv').remove()">Cancelar</button>
+        <button class="btn btn-verde" style="flex:2" onclick="guardarYAprobarSolicitud('${id}')">✓ Guardar y aprobar</button>
+      </div>
+    </div>`;
+    document.body.appendChild(div);
+    return;
+  }
+
   div.innerHTML=`
     <div style="background:#fff;border-radius:18px;padding:26px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto">
       <div style="font-size:17px;font-weight:900;margin-bottom:4px">✏️ Editar antes de aprobar</div>
@@ -5704,6 +5823,44 @@ window.editarSolicitud=(id)=>{
 window.guardarYAprobarSolicitud=async(id)=>{
   const s=sede();const sol=s.solicitudes.find(x=>x.id===id);if(!sol||sol.estado!=='pendiente')return;
   const tipoSol=sol.tipo_sol||'stock';
+
+  if(tipoSol==='stock'){
+    const cant=parseInt(document.getElementById('esCant').value)||0;
+    if(cant<=0){alert('Ingresa una cantidad válida');return;}
+    const p=s.productos.find(x=>x.id===sol.producto_id);
+    if(!p){alert('El producto ya no existe');document.getElementById('_editSolOv')?.remove();return;}
+    const cantOriginal=sol.cantidad;
+    p.stock+=cant;
+    sol.estado='aprobado';sol.aprobado_por=cant!==cantOriginal?`Admin (corregido: ${cantOriginal}→${cant})`:'Admin';sol.fecha_decision=new Date().toISOString();sol.cantidad=cant;
+    const mov={id:'mv_'+Date.now(),producto_id:p.id,producto_nombre:p.nombre,cantidad:cant,motivo:cant!==cantOriginal?`aprobado corregido de ${cantOriginal} a ${cant} (sol. de ${sol.solicitante})`:`aprobado (sol. de ${sol.solicitante})`,personal:'Admin',fecha:new Date().toISOString()};
+    s.movimientos=[mov,...(s.movimientos||[])];
+    document.getElementById('_editSolOv')?.remove();render();
+    await dbUpdateProd(s.id,p.id,{stock:p.stock});
+    await dbUpdateSolicitud(s.id,id,{estado:'aprobado',aprobado_por:sol.aprobado_por,fecha_decision:sol.fecha_decision,cantidad:cant});
+    await dbInsertMovStock(s.id,mov);
+    showToast(`✓ Stock aprobado: +${cant} · ${p.nombre}`);
+    return;
+  }
+
+  if(tipoSol==='ajuste_caja'){
+    const monto=parseFloat(document.getElementById('esMonto').value)||0;
+    if(monto<=0){alert('Ingresa un monto válido');return;}
+    let d={};try{d=JSON.parse(sol.datos);}catch(e){}
+    const esAgregar=d.modo==='agregar';
+    const montoOriginal=d.monto;
+    const notaCorr=monto!==montoOriginal?` (corregido de ${fmtS(montoOriginal)})`:'';
+    const tx=esAgregar
+      ?{id:'OP-'+Date.now(),tipo:'ingreso_caja',desc:d.motivo+(d.desc?' — '+d.desc:'')+' (sol. de '+sol.solicitante+')'+notaCorr,monto,metodo:'Efectivo',fecha:new Date().toISOString(),responsable:s.caja.responsable||''}
+      :{id:'OP-'+Date.now(),tipo:'gasto',desc:'[Retiro de caja] '+d.motivo+(d.desc?' — '+d.desc:'')+' (sol. de '+sol.solicitante+')'+notaCorr,monto,metodo:'Efectivo',fecha:new Date().toISOString(),responsable:s.caja.responsable||''};
+    s.transacciones.unshift(tx);
+    sol.estado='aprobado';sol.aprobado_por=monto!==montoOriginal?`Admin (corregido: ${fmtS(montoOriginal)}→${fmtS(monto)})`:'Admin';sol.fecha_decision=new Date().toISOString();
+    document.getElementById('_editSolOv')?.remove();render();
+    await dbInsertTx(s.id,tx);
+    await dbUpdateSolicitud(s.id,id,{estado:'aprobado',aprobado_por:sol.aprobado_por,fecha_decision:sol.fecha_decision});
+    showToast(`✓ ${esAgregar?'Ingreso':'Retiro'} aprobado · ${fmtS(monto)}`);
+    return;
+  }
+
   const nom=document.getElementById('esNom').value.trim();
   const cat=document.getElementById('esCat').value.trim()||'General';
   const compra=parseFloat(document.getElementById('esComp').value)||0;
@@ -5803,6 +5960,7 @@ window.doNuevaHab=async()=>{
   const pn=parseFloat(document.getElementById('hPn').value)||0;
   const h={num,tipo,piso,nombre,ph,pe,pn,estado:'libre'};
   s.habitaciones.push(h);
+  s.habitaciones.forEach(h=>{if(!EL[h.estado]){console.warn('Estado inválido en Hab.'+h.num+':',h.estado);h.estado=h.huesped?'ocupada':'limpieza';dbUpdateHab(s.id,h.num,{estado:h.estado});}});
   s.habitaciones.sort((a,b)=>a.num.localeCompare(b.num,undefined,{numeric:true}));
   cerrarModal();
   await dbInsertHab(s.id,h);
@@ -6421,8 +6579,8 @@ function imprimirCierreA4(d,s){
 }
 
 function imprimirCierre(s,contado=0,observaciones=''){
-  const st=calcStats();const ef=s.transacciones.filter(t=>t.metodo==='Efectivo'&&t.tipo!=='gasto').reduce((a,t)=>a+t.monto,0);
-  const esperado=s.caja.montoInicial+ef-st.gastos;
+  const st=calcStats();
+  const esperado=calcEfectivoCaja();
   const diferencia=contado-esperado;
   const cuadreOK=Math.abs(diferencia)<0.5;
   const cuadreText=cuadreOK?'✓ CUADRE CORRECTO':(diferencia<0?`FALTAN ${fmtS(Math.abs(diferencia))}`:`SOBRAN ${fmtS(diferencia)}`);
@@ -6443,7 +6601,7 @@ function imprimirCierre(s,contado=0,observaciones=''){
   <div class="${cuadreOK?'ok':'warn'}">${cuadreText}</div>
   ${observaciones?`<div class="obs"><b>Observaciones:</b><br>${observaciones}</div>`:''}<hr>
   <h3>VENTAS POR METODO</h3>
-  ${METODOS.map(m=>{const t=s.transacciones.filter(x=>x.metodo===m&&x.tipo!=='gasto').reduce((a,x)=>a+x.monto,0);return t?`<div class="r"><span>${m}:</span><span>${fmtS(t)}</span></div>`:'';}).join('')}
+  ${(()=>{const ap=(s.caja.abierta&&s.caja.apertura)?new Date(s.caja.apertura):null;const txT=ap?s.transacciones.filter(t=>!t.anulada&&new Date(t.fecha)>=ap):[];return METODOS.map(m=>{const t=txT.filter(x=>x.metodo===m&&x.tipo!=='gasto').reduce((a,x)=>a+Number(x.monto||0),0);return t?`<div class="r"><span>${m}:</span><span>${fmtS(t)}</span></div>`:'';}).join('');})()}
   <div class="r"><b>TOTAL VENTAS:</b><b>${fmtS(st.hospedaje+st.tienda)}</b></div><hr>
   <p style="text-align:center;font-size:11px">${new Date().toLocaleString('es-PE')}</p>
   </body></html>`);
@@ -6795,8 +6953,8 @@ function calcAnalytics(){
     out.ocupadasAhora+=s.habitaciones.filter(h=>h.estado==='ocupada').length;
     out.reservasActivas+=(s.reservas||[]).filter(r=>r.estado==='activa').length;
     out.reservasConfirmadas+=(s.reservas||[]).filter(r=>r.estado==='confirmada').length;
-    // Transacciones en rango
-    const txsRango=s.transacciones.filter(t=>{const d=new Date(t.fecha);return d>=ini&&d<=fin;});
+    // Transacciones en rango (excluye anuladas para no inflar los números)
+    const txsRango=s.transacciones.filter(t=>{if(t.anulada)return false;const d=new Date(t.fecha);return d>=ini&&d<=fin;});
     for(const t of txsRango){
       out.txs.push({...t,sede:s.nombre});
       const monto=Number(t.monto);
@@ -6917,7 +7075,15 @@ function pgAnalytics(){
     <button class="tab ${anTab==='personal'?'active':''}" onclick="setAnTab('personal')">👥 Personal</button>
     <button class="tab ${anTab==='ocupacion'?'active':''}" onclick="setAnTab('ocupacion')">🏨 Ocupación</button>
     <button class="tab ${anTab==='rentabilidad'?'active':''}" onclick="setAnTab('rentabilidad')">💰 Rentabilidad</button>
+    <button class="tab ${anTab==='d_tienda'?'active':''}" onclick="setAnTab('d_tienda')">🛍️ Dash Tienda</button>
+    <button class="tab ${anTab==='d_limpieza'?'active':''}" onclick="setAnTab('d_limpieza')">🧹 Dash Limpieza</button>
+    <button class="tab ${anTab==='d_mant'?'active':''}" onclick="setAnTab('d_mant')">🔧 Dash Manten.</button>
+    <button class="tab ${anTab==='d_inv'?'active':''}" onclick="setAnTab('d_inv')">📦 Dash Inventario</button>
   </div>
+  ${anTab==='d_tienda'?dashTienda():''}
+  ${anTab==='d_limpieza'?dashLimpieza():''}
+  ${anTab==='d_mant'?dashMantenimiento():''}
+  ${anTab==='d_inv'?dashInventario():''}
   ${anTab==='rentabilidad'?renderRentabilidad(data):''}
 
   ${anTab==='overview'?renderAnalyticsDias(data&&data.sede?data.sede:sede())+`<!-- KPIs -->
@@ -7356,6 +7522,170 @@ window.registrarAcceso=(session)=>{
 // ============================================================
 // PANTALLA SIMPLE DE LIMPIEZA (para personal de limpieza)
 // ============================================================
+
+// ============================================================
+// DASHBOARDS POR PESTAÑA — filtros compartidos
+// ============================================================
+function _dashF(key){if(!UI[key])UI[key]={desde:'',hasta:'',persona:'',turno:'',dia:''};return UI[key];}
+function dashFiltrosHTML(key,personas){
+  const f=_dashF(key);
+  const DIAS=[['','Todos los días'],['1','Lunes'],['2','Martes'],['3','Miércoles'],['4','Jueves'],['5','Viernes'],['6','Sábado'],['0','Domingo']];
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
+    <div class="field" style="margin:0"><label>Desde</label><input class="inp" type="date" value="${f.desde}" onchange="UI['${key}'].desde=this.value;render()"></div>
+    <div class="field" style="margin:0"><label>Hasta</label><input class="inp" type="date" value="${f.hasta}" onchange="UI['${key}'].hasta=this.value;render()"></div>
+    <div class="field" style="margin:0;min-width:140px"><label>Persona</label><select class="inp" onchange="UI['${key}'].persona=this.value;render()"><option value="">Todas</option>${(personas||[]).map(p=>`<option ${f.persona===p?'selected':''}>${p}</option>`).join('')}</select></div>
+    <div class="field" style="margin:0;min-width:120px"><label>Día de semana</label><select class="inp" onchange="UI['${key}'].dia=this.value;render()">${DIAS.map(([v,l])=>`<option value="${v}" ${f.dia===v?'selected':''}>${l}</option>`).join('')}</select></div>
+    <button class="btn btn-out" style="padding:9px 14px" onclick="UI['${key}']={desde:'',hasta:'',persona:'',turno:'',dia:''};render()">✕ Limpiar</button>
+  </div>`;
+}
+function dashFiltrar(items,f,campoFecha,campoPersona){
+  return items.filter(x=>{
+    const fecha=new Date(x[campoFecha||'fecha']);
+    if(f.desde&&fecha<new Date(f.desde+'T00:00:00'))return false;
+    if(f.hasta&&fecha>new Date(f.hasta+'T23:59:59'))return false;
+    if(f.dia!==''&&f.dia!=null&&String(fecha.getDay())!==String(f.dia))return false;
+    if(f.persona&&(x[campoPersona||'responsable']||'')!==f.persona)return false;
+    return true;
+  });
+}
+function dashKPI(lb,val,sub,grad){return `<div class="stat" style="background:linear-gradient(135deg,${grad||'#0ea5e9,#38bdf8'})"><div class="lbl">${lb}</div><div class="val">${val}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;}
+function dashBarras(pares,color,fmt){
+  if(!pares.length)return '<div class="empty" style="padding:20px 0">Sin datos con estos filtros</div>';
+  const max=Math.max(...pares.map(p=>p[1]));
+  return pares.map(([n,v],i)=>{const pct=max?Math.round(v/max*100):0;const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed var(--borde)"><span style="width:28px;font-weight:700;font-size:13px">${medal}</span><span style="flex:1;font-weight:600;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n}</span><div style="flex:2;height:9px;background:#e2e8f0;border-radius:5px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${color||'linear-gradient(90deg,#0ea5e9,#38bdf8)'}"></div></div><span style="width:80px;text-align:right;font-weight:800;font-size:13px">${fmt?fmt(v):v}</span></div>`;}).join('');
+}
+
+// ---- Dashboard de TIENDA ----
+function dashTienda(){
+  const s=sede();const f=_dashF('dashTiendaF');
+  const personas=[...new Set(s.transacciones.map(t=>t.responsable).filter(Boolean))];
+  const txs=dashFiltrar(s.transacciones.filter(t=>!t.anulada&&t.tipo==='tienda'),f);
+  const total=txs.reduce((a,t)=>a+Number(t.monto||0),0);
+  const porPersona={};txs.forEach(t=>{const p=t.responsable||'—';porPersona[p]=(porPersona[p]||0)+Number(t.monto||0);});
+  const porProd={};txs.forEach(t=>{(t.desc||'').split(':').slice(1).join(':').split(',').forEach(item=>{const m=item.trim().match(/^(\d+)x\s+(.+?)(?:\s*\(|$)/);if(m)porProd[m[2].trim()]=(porProd[m[2].trim()]||0)+parseInt(m[1]);});});
+  const bols=sumarPorBolsillo(txs);
+  return `<div class="panel" style="margin-bottom:16px;border-left:4px solid var(--azul)">
+    <h3>📊 Dashboard de Ventas — Tienda</h3>
+    ${dashFiltrosHTML('dashTiendaF',personas)}
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px">
+      ${dashKPI('💰 Ventas',fmtS(total),txs.length+' transacciones')}
+      ${dashKPI('🎫 Ticket prom.',fmtS(txs.length?total/txs.length:0),'','#16a34a,#4ade80')}
+      ${dashKPI('💵 Efectivo',fmtS(bols.efectivo),'','#64748b,#94a3b8')}
+      ${dashKPI('📲 Yape/Plin',fmtS(bols.yape),'','#7c3aed,#a78bfa')}
+    </div>
+    <div class="grid2">
+      <div><div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--txt2)">👤 COMPARATIVO POR PERSONA</div>${dashBarras(Object.entries(porPersona).sort((a,b)=>b[1]-a[1]),null,fmtS)}</div>
+      <div><div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--txt2)">🏆 TOP PRODUCTOS (unidades)</div>${dashBarras(Object.entries(porProd).sort((a,b)=>b[1]-a[1]).slice(0,8),'linear-gradient(90deg,#f59e0b,#fbbf24)')}</div>
+    </div>
+  </div>`;
+}
+
+// ---- Dashboard de LIMPIEZA + página completa ----
+function getUmbralLP(){return parseInt(localStorage.getItem('avd_umbral_lp')||'20');}
+function dashLimpieza(){
+  const s=sede();const f=_dashF('dashLimpF');
+  const personas=[...new Set((s.limpiezas||[]).map(l=>l.personal).filter(Boolean))];
+  const limps=dashFiltrar(s.limpiezas||[],f,'fecha','personal');
+  const porPersona={};limps.forEach(l=>{const p=l.personal||'—';porPersona[p]=(porPersona[p]||0)+1;});
+  const umbral=getUmbralLP();
+  const requieren=s.habitaciones.filter(h=>(h.uso_count||0)>=umbral);
+  const cerca=s.habitaciones.filter(h=>{const u=h.uso_count||0;return u>=umbral*0.7&&u<umbral;});
+  return `<div class="panel" style="margin-bottom:16px;border-left:4px solid #d97706">
+    <h3>📊 Dashboard de Limpieza</h3>
+    ${dashFiltrosHTML('dashLimpF',personas)}
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px">
+      ${dashKPI('🧹 Limpiezas',limps.length,'con filtros aplicados','#d97706,#fbbf24')}
+      ${dashKPI('🔴 Requieren profunda',requieren.length,'≥ '+umbral+' usos','#dc2626,#f87171')}
+      ${dashKPI('🟡 Cerca del límite',cerca.length,'≥ '+Math.ceil(umbral*0.7)+' usos','#f59e0b,#fde047')}
+    </div>
+    <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--txt2)">👤 COMPARATIVO — HABITACIONES LIMPIADAS POR PERSONA</div>
+    ${dashBarras(Object.entries(porPersona).sort((a,b)=>b[1]-a[1]),'linear-gradient(90deg,#d97706,#fbbf24)')}
+  </div>`;
+}
+function pgLimpieza(){
+  const s=sede();const umbral=getUmbralLP();
+  const conUsos=s.habitaciones.map(h=>({...h,usos:h.uso_count||0,faltan:Math.max(0,umbral-(h.uso_count||0))})).sort((a,b)=>b.usos-a.usos);
+  const requieren=conUsos.filter(h=>h.usos>=umbral);
+  const ultimas=(s.limpiezas||[]).slice(0,30);
+  return `
+  <div class="sec-head"><div><div class="sec-title">🧹 Limpieza</div><div class="sec-sub">Control de limpiezas y limpieza profunda</div></div></div>
+  ${dashLimpieza()}
+  ${requieren.length?`<div class="panel" style="margin-bottom:16px;border-left:4px solid #dc2626">
+    <h3 style="color:#991b1b">🚨 Requieren LIMPIEZA PROFUNDA (${requieren.length})</h3>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+      ${requieren.map(h=>`<div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:12px;padding:12px 16px;text-align:center;min-width:100px">
+        <div style="font-size:24px;font-weight:900;color:#991b1b">${h.num}</div>
+        <div style="font-size:11px;color:#b91c1c;font-weight:700">${h.usos} usos</div>
+        <button onclick="marcarLimpiezaProfunda('${h.num}')" style="margin-top:8px;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:800;cursor:pointer">✓ Profunda hecha</button>
+      </div>`).join('')}
+    </div>
+  </div>`:''}
+  <div class="panel" style="margin-bottom:16px">
+    <h3>📋 Estado de usos por habitación <span style="font-size:12px;color:var(--txt2);font-weight:400">(profunda cada ${umbral} usos — editable en Config → Alertas)</span></h3>
+    <table style="font-size:13px"><thead><tr><th>Hab.</th><th>Tipo</th><th>Usos</th><th>Faltan para profunda</th><th style="width:30%"></th></tr></thead><tbody>
+      ${conUsos.map(h=>{const pct=Math.min(100,Math.round(h.usos/umbral*100));const col=h.usos>=umbral?'#dc2626':h.usos>=umbral*0.7?'#f59e0b':'#16a34a';
+        return `<tr><td style="font-weight:800">${h.num}</td><td style="font-size:12px;color:var(--txt2)">${h.tipo||''}</td><td style="font-weight:700;color:${col}">${h.usos}</td><td style="font-weight:600">${h.usos>=umbral?'<span style="color:#dc2626">¡YA!</span>':h.faltan+' usos'}</td><td><div style="height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${col}"></div></div></td></tr>`;}).join('')}
+    </tbody></table>
+  </div>
+  <div class="panel">
+    <h3>🕐 Últimas limpiezas registradas</h3>
+    ${ultimas.length===0?'<div class="empty" style="padding:20px 0">Sin limpiezas registradas aún</div>':ultimas.map(l=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:7px 0;border-bottom:1px dashed var(--borde)"><span><b>Hab. ${l.hab_num}</b> · ${l.personal||'—'}${l.tipo==='profunda'?' <span style="background:#ede9fe;color:#6b21a8;font-size:10px;padding:1px 6px;border-radius:5px;font-weight:700">PROFUNDA</span>':''}</span><span style="color:var(--txt2);white-space:nowrap">${new Date(l.fecha).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span></div>`).join('')}
+  </div>`;
+}
+window.marcarLimpiezaProfunda=async(num)=>{
+  const s=sede();const h=s.habitaciones.find(x=>x.num===num);if(!h)return;
+  if(!confirm('¿Confirmar que se hizo LIMPIEZA PROFUNDA en la Hab. '+num+'?\nEl contador de usos se reiniciará a 0.'))return;
+  h.uso_count=0;
+  const reg={id:'lp_'+Date.now(),hab_num:num,personal:UI.session?.nombre||s.caja.responsable||'',fecha:new Date().toISOString(),tipo:'profunda'};
+  s.limpiezas=[reg,...(s.limpiezas||[])];
+  showToast('✓ Limpieza profunda registrada · Hab. '+num);render();
+  await dbUpdateHab(s.id,num,{uso_count:0});
+  await dbInsertLimpieza(s.id,reg);
+};
+
+// ---- Dashboard de MANTENIMIENTO ----
+function dashMantenimiento(){
+  const s=sede();const f=_dashF('dashMantF');
+  const all=s.mantenimiento||[];
+  const tks=dashFiltrar(all,f,'fecha','reportado_por');
+  const abiertos=tks.filter(t=>t.estado!=='resuelto');
+  const resueltos=tks.filter(t=>t.estado==='resuelto');
+  const costo=resueltos.reduce((a,t)=>a+Number(t.costo||0),0);
+  const porHab={};tks.forEach(t=>{porHab['Hab. '+t.hab_num]=(porHab['Hab. '+t.hab_num]||0)+1;});
+  return `<div class="panel" style="margin-bottom:16px;border-left:4px solid #7c3aed">
+    <h3>📊 Dashboard de Mantenimiento</h3>
+    ${dashFiltrosHTML('dashMantF',[...new Set(all.map(t=>t.reportado_por).filter(Boolean))])}
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px">
+      ${dashKPI('🔧 Abiertos',abiertos.length,'','#dc2626,#f87171')}
+      ${dashKPI('✓ Resueltos',resueltos.length,'','#16a34a,#4ade80')}
+      ${dashKPI('💸 Costo reparaciones',fmtS(costo),'','#7c3aed,#a78bfa')}
+    </div>
+    <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--txt2)">🏨 HABITACIONES CON MÁS INCIDENCIAS</div>
+    ${dashBarras(Object.entries(porHab).sort((a,b)=>b[1]-a[1]).slice(0,6),'linear-gradient(90deg,#7c3aed,#a78bfa)')}
+  </div>`;
+}
+
+// ---- Dashboard de INVENTARIO ----
+function dashInventario(){
+  const s=sede();
+  const prods=s.productos||[];
+  const valCompra=prods.reduce((a,p)=>a+Number(p.compra||0)*Number(p.stock||0),0);
+  const valVenta=prods.filter(p=>p.tipo!=='insumo').reduce((a,p)=>a+Number(p.venta||0)*Number(p.stock||0),0);
+  const umbral=getUmbralStock();
+  const bajos=prods.filter(p=>p.stock<=umbral);
+  return `<div class="panel" style="margin-bottom:16px;border-left:4px solid #16a34a">
+    <h3>📊 Dashboard de Inventario</h3>
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+      ${dashKPI('📦 Productos',prods.length,prods.reduce((a,p)=>a+Number(p.stock||0),0)+' unidades totales','#16a34a,#4ade80')}
+      ${dashKPI('💰 Valor a costo',fmtS(valCompra),'','#0ea5e9,#38bdf8')}
+      ${dashKPI('🏷️ Valor a venta',fmtS(valVenta),'','#f59e0b,#fbbf24')}
+      ${dashKPI('⚠️ Stock bajo',bajos.length,'≤ '+umbral+' unidades','#dc2626,#f87171')}
+    </div>
+    ${bajos.length?`<div style="margin-top:12px;font-size:12px;color:#991b1b"><b>Bajos:</b> ${bajos.slice(0,8).map(p=>p.nombre+' ('+p.stock+')').join(' · ')}${bajos.length>8?' y '+(bajos.length-8)+' más':''}</div>`:''}
+  </div>`;
+}
+
 function pgLimpiezaSimple(){
   const s=sede();
   const porLimpiar=s.habitaciones.filter(h=>h.estado==='limpieza');
@@ -7981,16 +8311,37 @@ function showToast(msg, tipo='exito'){
 
 window.doNuevoIngreso=async()=>{
   const s=sede();
-  const motivo=document.getElementById('ingMotivo')?.value||'Reposición de fondo';
+  const modo=UI.ajusteCajaModo||'agregar';
+  const motivo=document.getElementById('ingMotivo')?.value||'Ajuste de caja';
   const desc=(document.getElementById('ingDesc')?.value||'').trim();
   const monto=parseFloat(document.getElementById('ingMonto')?.value)||0;
   const autoriza=(document.getElementById('ingAutoriza')?.value||'').trim();
   if(monto<=0){alert('Ingresa un monto válido');return;}
-  const tx={id:'OP-'+Date.now(),tipo:'ingreso_caja',desc:motivo+(desc?' — '+desc:'')+(autoriza?' (autoriza: '+autoriza+')':''),monto,metodo:'Efectivo',fecha:new Date().toISOString(),responsable:s.caja.responsable||''};
-  s.transacciones.unshift(tx);
-  showToast('Ingreso registrado · S/ '+monto.toFixed(2));
-  cerrarModal();render();
-  await dbInsertTx(s.id,tx);
+
+  if(!UI.adminAuth){
+    // Recepción: genera solicitud de ajuste de caja
+    const sol={id:'sol_'+Date.now(),tipo_sol:'ajuste_caja',producto_nombre:(modo==='agregar'?'➕ Agregar ':'➖ Retirar ')+fmtS(monto),solicitante:UI.session?.nombre||s.caja.responsable||'Recepción',fecha:new Date().toISOString(),estado:'pendiente',datos:JSON.stringify({modo,motivo,desc,monto,autoriza})};
+    s.solicitudes=[sol,...(s.solicitudes||[])];
+    cerrarModal();
+    alert(`📝 Solicitud enviada al administrador.\n\n${modo==='agregar'?'Agregar':'Retirar'} ${fmtS(monto)} — ${motivo}\n\nEl administrador debe aprobarla para que se aplique a la caja.`);
+    await dbInsertSolicitud(s.id,sol);render();
+    return;
+  }
+
+  // Admin: aplica directo
+  if(modo==='agregar'){
+    const tx={id:'OP-'+Date.now(),tipo:'ingreso_caja',desc:motivo+(desc?' — '+desc:'')+(autoriza?' (autoriza: '+autoriza+')':''),monto,metodo:'Efectivo',fecha:new Date().toISOString(),responsable:s.caja.responsable||''};
+    s.transacciones.unshift(tx);
+    showToast('💵 Ingreso registrado · '+fmtS(monto));
+    cerrarModal();render();
+    await dbInsertTx(s.id,tx);
+  }else{
+    const tx={id:'OP-'+Date.now(),tipo:'gasto',desc:'[Retiro de caja] '+motivo+(desc?' — '+desc:'')+(autoriza?' (autoriza: '+autoriza+')':''),monto,metodo:'Efectivo',fecha:new Date().toISOString(),responsable:s.caja.responsable||''};
+    s.transacciones.unshift(tx);
+    showToast('💸 Retiro registrado · '+fmtS(monto));
+    cerrarModal();render();
+    await dbInsertTx(s.id,tx);
+  }
 };
 
 window.agregarExtraPago=()=>{
@@ -8316,7 +8667,7 @@ async function sincronizarSilencioso(){
 }
 function iniciarSyncAutomatico(){
   if(_syncInterval)clearInterval(_syncInterval);
-  _syncInterval=setInterval(sincronizarSilencioso,5000); // cada 5 segundos
+  _syncInterval=setInterval(sincronizarSilencioso,15000); // cada 15 segundos
   // Sincronizar al volver a la pestaña
   document.addEventListener('visibilitychange',()=>{
     if(!document.hidden&&UI.session&&!UI.modal&&window._guardando===0&&Date.now()-(window._ultimaEscritura||0)>8000&&Date.now()-_ultimaSync>10000){
@@ -8334,9 +8685,3 @@ setTimeout(_pintarBannerPendientes,1500);
 </script>
 </body>
 </html>
-
-
-
-
-
-
