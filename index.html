@@ -673,6 +673,7 @@ const IC={eye:'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z M12 9a3 3 0 1 0 0 6 
   wrench:'M14.7 6.3a4 4 0 00-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 005.4-5.4l-2.7 2.7-2-2 2.7-2.7z',
   bell:'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
   logOut:'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+  clock:'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z M12 6v6l4 2',
   inbox:'M22 12h-6l-2 3h-4l-2-3H2 M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
 };
 function icon(n,s){s=s||20;return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${IC[n]||''}"/></svg>`;}
@@ -1957,8 +1958,8 @@ function _panelAnalyticsExtra(s){
   </div>`;
 }
 
-function renderAnalyticsDias(s){
-  const txs=s.transacciones.filter(t=>!t.anulada&&t.tipo==='hospedaje');
+function renderAnalyticsDias(s,ini,fin){
+  const txs=s.transacciones.filter(t=>{if(t.anulada||t.tipo!=='hospedaje')return false;if(ini||fin){const d=new Date(t.fecha);if(ini&&d<ini)return false;if(fin&&d>fin)return false;}return true;});
   const DIAS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
   const porDia=[0,0,0,0,0,0,0];const ingresoDia=[0,0,0,0,0,0,0];
   const porHora=Array(24).fill(0);
@@ -3256,6 +3257,7 @@ function renderGastosOp(s){
 function pgFinanzas(){
   const s=sede(),st=calcStats();
   return `
+  ${UI.adminAuth?panelPuntoEquilibrio()+panelPagosFijos():''}
   ${UI.adminAuth?`<div class="panel" style="margin-bottom:14px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
     <div class="field" style="margin:0;flex:0 0 170px"><label>📋 Exportación contable</label><input class="inp" id="contMes" type="month" value="${new Date().toISOString().slice(0,7)}"></div>
     <button class="btn btn-azul" onclick="exportarContableMes()">⬇️ Descargar Excel del mes</button>
@@ -7003,7 +7005,7 @@ function calcAnalytics(){
     }
   }
   out.ingresosTotal=out.ingresos_hosp+out.ingresos_tienda+out.ingresos_reservas;
-  out.balance=out.ingresosTotal-out.gastos;
+  out.balance=out.ingresosTotal-out.gastos;out.ini=ini;out.fin=fin;
   out.ticketProm=out.ticketCount?out.ticketSum/out.ticketCount:0;
   out.ocupacionPct=out.habitacionesTotales?Math.round((out.ocupadasAhora/out.habitacionesTotales)*100):0;
   return out;
@@ -7086,7 +7088,7 @@ function pgAnalytics(){
   ${anTab==='d_inv'?dashInventario():''}
   ${anTab==='rentabilidad'?renderRentabilidad(data):''}
 
-  ${anTab==='overview'?renderAnalyticsDias(data&&data.sede?data.sede:sede())+`<!-- KPIs -->
+  ${anTab==='overview'?panelPuntoEquilibrio()+renderAnalyticsDias(data&&data.sede?data.sede:sede(),data.ini,data.fin)+`<!-- KPIs -->
   <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px">
     <div class="stat" style="background:linear-gradient(135deg,#15803d,#22c55e)">
       <div class="lbl">💰 Ingresos totales</div>
@@ -7683,6 +7685,101 @@ function dashInventario(){
       ${dashKPI('⚠️ Stock bajo',bajos.length,'≤ '+umbral+' unidades','#dc2626,#f87171')}
     </div>
     ${bajos.length?`<div style="margin-top:12px;font-size:12px;color:#991b1b"><b>Bajos:</b> ${bajos.slice(0,8).map(p=>p.nombre+' ('+p.stock+')').join(' · ')}${bajos.length>8?' y '+(bajos.length-8)+' más':''}</div>`:''}
+  </div>`;
+}
+
+
+// ============================================================
+// PAGOS FIJOS (planilla, servicios, arbitrios) + PUNTO DE EQUILIBRIO
+// ============================================================
+function getPagosFijos(){const s=sede();try{return JSON.parse(localStorage.getItem('avd_pagos_fijos_'+s.id)||'[]');}catch(e){return[];}}
+function savePagosFijos(arr){const s=sede();localStorage.setItem('avd_pagos_fijos_'+s.id,JSON.stringify(arr));}
+function mesActualKey(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+window.agregarPagoFijo=()=>{
+  const nombre=prompt('Nombre del pago (ej: Sueldo Marlene, Luz, Agua, Arbitrios):');if(!nombre)return;
+  const cat=prompt('Categoría: personal / servicio / arbitrio / otro','servicio')||'otro';
+  const monto=parseFloat(prompt('Monto mensual (S/):'))||0;if(monto<=0){alert('Monto inválido');return;}
+  const dia=parseInt(prompt('Día del mes en que vence (1-31):','28'))||28;
+  const arr=getPagosFijos();arr.push({id:'pf_'+Date.now(),nombre,categoria:cat.toLowerCase(),monto,dia_venc:dia,pagos:{}});
+  savePagosFijos(arr);showToast('✓ Pago fijo agregado: '+nombre);render();
+};
+window.editarPagoFijo=(id)=>{
+  const arr=getPagosFijos();const p=arr.find(x=>x.id===id);if(!p)return;
+  const monto=parseFloat(prompt('Nuevo monto mensual para "'+p.nombre+'":',p.monto));if(!monto||monto<=0)return;
+  p.monto=monto;savePagosFijos(arr);showToast('✓ Actualizado');render();
+};
+window.borrarPagoFijo=(id)=>{
+  const arr=getPagosFijos();const p=arr.find(x=>x.id===id);if(!p)return;
+  if(!confirm('¿Eliminar "'+p.nombre+'" de los pagos fijos?'))return;
+  savePagosFijos(arr.filter(x=>x.id!==id));render();
+};
+window.marcarPagoFijoPagado=async(id)=>{
+  const s=sede();const arr=getPagosFijos();const p=arr.find(x=>x.id===id);if(!p)return;
+  const mk=mesActualKey();
+  if(p.pagos[mk]){alert('Ya está marcado como pagado este mes ('+new Date(p.pagos[mk].fecha).toLocaleDateString('es-PE')+')');return;}
+  if(!confirm('¿Registrar el pago de "'+p.nombre+'" por '+fmtS(p.monto)+'?\nSe creará un gasto en caja.'))return;
+  p.pagos[mk]={fecha:new Date().toISOString(),monto:p.monto};savePagosFijos(arr);
+  const tx={id:'OP-'+Date.now(),tipo:'gasto',desc:'[Pago fijo · '+p.categoria+'] '+p.nombre,monto:p.monto,metodo:'Efectivo',fecha:new Date().toISOString(),responsable:s.caja.responsable||''};
+  s.transacciones.unshift(tx);
+  showToast('✓ Pago registrado: '+p.nombre+' · '+fmtS(p.monto));render();
+  await dbInsertTx(s.id,tx);
+};
+function panelPagosFijos(){
+  const arr=getPagosFijos();const mk=mesActualKey();
+  const CAT={personal:'👥 Personal',servicio:'💡 Servicio',arbitrio:'🏛️ Arbitrio',otro:'📌 Otro'};
+  const total=arr.reduce((a,p)=>a+p.monto,0);
+  const pagado=arr.filter(p=>p.pagos[mk]).reduce((a,p)=>a+p.pagos[mk].monto,0);
+  return `<div class="panel" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <h3 style="margin:0">💳 Pagos Fijos del Mes</h3>
+      <button class="btn btn-azul" onclick="agregarPagoFijo()">+ Agregar pago fijo</button>
+    </div>
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px">
+      ${dashKPI('📋 Comprometido/mes',fmtS(total),arr.length+' obligaciones','#64748b,#94a3b8')}
+      ${dashKPI('✓ Pagado este mes',fmtS(pagado),'','#16a34a,#4ade80')}
+      ${dashKPI('⏳ Pendiente',fmtS(total-pagado),'','#dc2626,#f87171')}
+    </div>
+    ${arr.length===0?'<div class="empty" style="padding:20px 0">Agrega tus pagos recurrentes: planilla del personal, luz, agua, internet, arbitrios…</div>':`
+    <table style="font-size:13px"><thead><tr><th>Pago</th><th>Categoría</th><th>Vence</th><th style="text-align:right">Monto</th><th>Estado (este mes)</th><th></th></tr></thead><tbody>
+      ${arr.sort((a,b)=>a.dia_venc-b.dia_venc).map(p=>{const pag=p.pagos[mk];const hoy=new Date().getDate();const vencido=!pag&&hoy>p.dia_venc;
+        return `<tr>
+        <td style="font-weight:700">${p.nombre}</td>
+        <td style="font-size:12px">${CAT[p.categoria]||p.categoria}</td>
+        <td style="font-weight:600;color:${vencido?'#dc2626':'var(--txt2)'}">día ${p.dia_venc}${vencido?' ⚠️':''}</td>
+        <td style="text-align:right;font-weight:800">${fmtS(p.monto)}</td>
+        <td>${pag?`<span style="background:#dcfce7;color:#15803d;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:800">✓ Pagado ${new Date(pag.fecha).toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit'})}</span>`:`<button onclick="marcarPagoFijoPagado('${p.id}')" style="background:#0ea5e9;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:11px;font-weight:800;cursor:pointer">💵 Marcar pagado</button>`}</td>
+        <td style="white-space:nowrap"><button class="btn-out" style="padding:3px 8px;border-radius:6px;font-size:11px;cursor:pointer" onclick="editarPagoFijo('${p.id}')">✏️</button> <button class="btn-out" style="padding:3px 8px;border-radius:6px;font-size:11px;color:var(--rojo);border-color:#fca5a5;cursor:pointer" onclick="borrarPagoFijo('${p.id}')">🗑</button></td>
+      </tr>`;}).join('')}
+    </tbody></table>`}
+  </div>`;
+}
+function panelPuntoEquilibrio(){
+  const s=sede();
+  const meta=getPagosFijos().reduce((a,p)=>a+p.monto,0);
+  const hoy=new Date();const iniMes=new Date(hoy.getFullYear(),hoy.getMonth(),1);
+  const txs=s.transacciones.filter(t=>!t.anulada&&t.tipo!=='gasto'&&t.tipo!=='ingreso_caja'&&t.metodo!=='Cortesía'&&t.metodo!=='Consumo interno'&&new Date(t.fecha)>=iniMes);
+  // ingresos acumulados por día del mes
+  const diasMes=new Date(hoy.getFullYear(),hoy.getMonth()+1,0).getDate();
+  const porDia=Array(diasMes).fill(0);
+  txs.forEach(t=>{porDia[new Date(t.fecha).getDate()-1]+=Number(t.monto||0);});
+  let acum=0,diaCruce=null;const acumArr=[];
+  for(let d=0;d<diasMes;d++){acum+=porDia[d];acumArr.push(acum);if(diaCruce===null&&meta>0&&acum>=meta)diaCruce=d+1;}
+  const totalMes=acumArr[hoy.getDate()-1]||0;
+  const pct=meta>0?Math.min(100,Math.round(totalMes/meta*100)):0;
+  const proyeccion=hoy.getDate()>0?Math.round(totalMes/hoy.getDate()*diasMes):0;
+  return `<div class="panel" style="margin-bottom:18px;border-left:4px solid ${diaCruce?'#16a34a':'#f59e0b'}">
+    <h3>🎯 Punto de Equilibrio — ${hoy.toLocaleDateString('es-PE',{month:'long',year:'numeric'})}</h3>
+    ${meta===0?`<div style="background:#fffbeb;border:1px solid #fde047;border-radius:10px;padding:12px;font-size:13px;color:#92400e">Configura tus <b>Pagos Fijos</b> en Finanzas → Pagos para calcular tu punto de equilibrio (suma de planilla + servicios + arbitrios).</div>`:`
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:12px">
+      ${dashKPI('🎯 Meta (gastos fijos)',fmtS(meta),'planilla + servicios','#64748b,#94a3b8')}
+      ${dashKPI('💰 Ingresos del mes',fmtS(totalMes),pct+'% de la meta',pct>=100?'#16a34a,#4ade80':'#0ea5e9,#38bdf8')}
+      ${diaCruce?dashKPI('✅ Equilibrio alcanzado','Día '+diaCruce,'desde ahí todo es ganancia','#16a34a,#4ade80'):dashKPI('📈 Proyección fin de mes',fmtS(proyeccion),proyeccion>=meta?'llegarías a la meta ✓':'no alcanzaría ⚠️',proyeccion>=meta?'#16a34a,#4ade80':'#dc2626,#f87171')}
+    </div>
+    <div style="height:14px;background:#e2e8f0;border-radius:7px;overflow:hidden;position:relative">
+      <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#0ea5e9,${pct>=100?'#16a34a':'#38bdf8'});transition:width .3s"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--txt2);margin-top:4px"><span>S/ 0</span><span style="font-weight:800;color:${pct>=100?'#15803d':'var(--txt2)'}">${pct}%</span><span>${fmtS(meta)}</span></div>
+    <div style="font-size:12px;color:var(--txt2);margin-top:10px">${diaCruce?`🟢 Este mes cubriste todos tus gastos fijos el <b>día ${diaCruce}</b>. Mientras más temprano cruces la línea, más autosuficiente es el negocio.`:`🟡 Aún no cruzas el punto de equilibrio. Te faltan <b>${fmtS(Math.max(0,meta-totalMes))}</b>.`}</div>`}
   </div>`;
 }
 
